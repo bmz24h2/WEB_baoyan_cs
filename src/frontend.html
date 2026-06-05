@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>985高校 CS 预推免强弱 com 导航</title>
+<title>985/211 CS 预推免强弱 com 导航</title>
 <link rel="stylesheet" href="frontend.css">
 </head>
 <body>
@@ -18,19 +18,26 @@
   <button class="sidebar-link" data-tier="中下游985" onclick="setTier(this)"><span class="tdot" style="background:var(--amber-mid)"></span>中下游 985</button>
   <button class="sidebar-link" data-tier="末流985" onclick="setTier(this)"><span class="tdot" style="background:var(--coral-mid)"></span>末流 985</button>
   <button class="sidebar-link" data-tier="中科院" onclick="setTier(this)"><span class="tdot" style="background:#888"></span>中科院</button>
+  <div class="sidebar-title" style="margin-top:10px">211 梯队</div>
+  <button class="sidebar-link" data-tier="顶级211" onclick="setTier(this)"><span class="tdot" style="background:var(--purple-mid)"></span>顶级 211</button>
+  <button class="sidebar-link" data-tier="中上211" onclick="setTier(this)"><span class="tdot" style="background:var(--blue-mid)"></span>中上 211</button>
+  <button class="sidebar-link" data-tier="中流211" onclick="setTier(this)"><span class="tdot" style="background:var(--green-mid)"></span>中流 211</button>
+  <button class="sidebar-link" data-tier="中下211" onclick="setTier(this)"><span class="tdot" style="background:var(--amber-mid)"></span>中下 211</button>
+  <button class="sidebar-link" data-tier="末流211" onclick="setTier(this)"><span class="tdot" style="background:var(--coral-mid)"></span>末流 211</button>
   <div class="sidebar-title" style="margin-top:10px">省份</div>
   <div id="prov"></div>
 </nav>
 
 <main class="main">
   <div class="page-header">
-    <h1>985 CS 预推免强弱 com 导航</h1>
-    <p>数据来源：你提供的小红书图片（@8052244911）· 官网链接为已知域名</p>
+    <h1>985 / 211 CS 预推免强弱 com 导航</h1>
+    <p>数据来源：你提供的小红书图片（@8052244911 · 211排名图）· 官网链接为已知域名</p>
   </div>
 
   <div class="source-note">
-    ✅ 强 / 弱 com 数据 100% 来自你上传的图片，原帖 @8052244911<br>
-    ✅ 官网链接来自各校已知域名（运行 url_verifier.py 可验证有效性）<br>
+    ✅ 985 强 / 弱 com 数据 100% 来自你上传的图片，原帖 @8052244911<br>
+    ✅ 211 分档数据来自你上传的 211 大学排名图片（顶级 / 中上 / 中流 / 中下 / 末流）<br>
+    ✅ 全部院校数据统一存储在 SQLite 数据库中（init_data.sql）<br>
     ❌ 已删除：实验室信息、教师名单、保研率估算（无法从这里实时验证）
   </div>
 

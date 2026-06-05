@@ -13,7 +13,13 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.net.*;
 import java.net.http.*;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -65,6 +71,24 @@ public class FetchEngine {
     // ════════════════════════════════════════════════════════════════════════
     // 常量
     // ════════════════════════════════════════════════════════════════════════
+
+    // jsoup 1.16+ 删除了 validateTLSCertificates()，改用自定义 SSLSocketFactory
+    private static final SSLSocketFactory TRUST_ALL_SSL;
+    static {
+        SSLSocketFactory sf;
+        try {
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                public void checkClientTrusted(X509Certificate[] c, String a) {}
+                public void checkServerTrusted(X509Certificate[] c, String a) {}
+            }}, new SecureRandom());
+            sf = sc.getSocketFactory();
+        } catch (Exception e) {
+            sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+        }
+        TRUST_ALL_SSL = sf;
+    }
 
     static final Random RNG = new Random();
 
@@ -130,6 +154,10 @@ public class FetchEngine {
 
     // 纯中文姓名验证（2-5汉字）
     static final Pattern CN_NAME_PAT = Pattern.compile("^[\\u4e00-\\u9fff]{2,5}$");
+
+    // ★ 机构名称模式（排除学校/学院/研究所等被当成人名）
+    static final Pattern INSTITUTION_NAME_PAT = Pattern.compile(
+        ".*(大学|学院|学部|学系|中心|研究所|研究院|实验室|书院|附属|集团|公司|医院|委员会)$");
 
     // ★ 关键修复1：新增 /info/\d+/\d+（金智JW系统）+ /article/\d+/（泛模式）
     static final Pattern PROFILE_URL_PAT = Pattern.compile(
@@ -214,7 +242,7 @@ public class FetchEngine {
                         .header("Accept-Encoding", "gzip, deflate")
                         .header("Connection",      "keep-alive")
                         .header("Upgrade-Insecure-Requests", "1")
-                        .validateTLSCertificates(false)
+                        .sslSocketFactory(TRUST_ALL_SSL)
                         .timeout(timeout)
                         .followRedirects(true)
                         .ignoreContentType(false)
@@ -312,7 +340,7 @@ public class FetchEngine {
             String archiveUrl = m.group(1);
             log.info("  ★ Wayback Machine 兜底: {}", archiveUrl);
             return Jsoup.connect(archiveUrl).userAgent(ua()).timeout(timeout * 2)
-                .validateTLSCertificates(false).get();
+                .sslSocketFactory(TRUST_ALL_SSL).get();
         } catch (Exception e) {
             log.debug("  Wayback fallback 失败 {}: {}", url, e.getMessage());
             return null;
@@ -819,7 +847,9 @@ public class FetchEngine {
             // 行内全信息条目（无URL）：直接保存，无需fetch profile
             if (url == null || url.isBlank() || url.startsWith("inline|") || url.startsWith("script|")) {
                 if (nameHint != null && CN_NAME_PAT.matcher(nameHint).matches()
-                        && !NAME_BLACKLIST.contains(nameHint)) {
+                        && !NAME_BLACKLIST.contains(nameHint)
+                        && !INSTITUTION_NAME_PAT.matcher(nameHint).matches()
+                        && !nameHint.equals(univName)) {
                     BaoyanApp.Teacher t = new BaoyanApp.Teacher(nameHint, univName, deptName,
                         "nourl:" + univName + ":" + nameHint);
                     t.setTitle(inlineTit);
@@ -845,7 +875,9 @@ public class FetchEngine {
                     // 只要姓名合法即保存；字段空只记警告，不丢弃。
                     // 原来的门控（title&&research&&email 全空就丢弃）会把江南大学等解析失败的老师全砍掉。
                     if (name.isEmpty() || name.length() < 2 || !CN_NAME_PAT.matcher(name).matches()
-                            || NAME_BLACKLIST.contains(name)) {
+                            || NAME_BLACKLIST.contains(name)
+                            || INSTITUTION_NAME_PAT.matcher(name).matches()
+                            || name.equals(univName)) {
                         log.debug("    ⚠️ 无效姓名跳过: hint={} url={}", nameHint, url);
                         return;
                     }

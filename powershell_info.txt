@@ -1,0 +1,2 @@
+
+清理重复：Get-Content cleanup_duplicates.sql -Encoding UTF8 | sqlite3 output/faculty.db

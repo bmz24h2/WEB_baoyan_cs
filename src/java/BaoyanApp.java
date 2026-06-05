@@ -44,7 +44,8 @@ public class BaoyanApp {
         ApplicationContext ctx = SpringApplication.run(BaoyanApp.class, args);
         DatabaseService db = ctx.getBean(DatabaseService.class);
         db.initSchema();
-        log.info("✅ 985 CS 保研导航已启动 → http://localhost:8080");
+        db.initStaticData();
+        log.info("✅ 985/211 CS 保研导航已启动 → http://localhost:8080");
         log.info("   当前数据库: {} 条教师记录", db.countTeachers());
     }
 
@@ -224,14 +225,131 @@ public class BaoyanApp {
                         published_at TEXT,
                         scraped_at   TEXT
                     )""");
+                // ★ 院校静态数据表（原 data.js 迁入）
+                s.execute("""
+                    CREATE TABLE IF NOT EXISTS universities (
+                        name     TEXT PRIMARY KEY,
+                        rank     INTEGER DEFAULT 999,
+                        province TEXT,
+                        tier     TEXT NOT NULL,
+                        cs_url   TEXT DEFAULT '',
+                        adm_url  TEXT DEFAULT '',
+                        note     TEXT DEFAULT '',
+                        xhs      TEXT DEFAULT '[]'
+                    )""");
+                s.execute("""
+                    CREATE TABLE IF NOT EXISTS departments (
+                        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                        univ_name  TEXT NOT NULL,
+                        dept_name  TEXT NOT NULL,
+                        com_status TEXT DEFAULT 'unknown',
+                        UNIQUE(univ_name, dept_name),
+                        FOREIGN KEY (univ_name) REFERENCES universities(name)
+                    )""");
                 log.info("DB schema 初始化完成: {}", datasourceUrl);
+                // ★ 防止同一个老师从不同URL被存两次
+                try { s.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_name_univ ON teachers(name, university)"); }
+                catch (SQLException ignored) { /* 旧库已有数据时忽略 */ }
             } catch (SQLException e) {
                 log.error("DB 初始化失败: {}", e.getMessage());
             }
         }
 
-        /** 插入或更新教师（按 profile_url 去重） */
+        /** ★ 首次启动自动导入 init_data.sql */
+        public void initStaticData() {
+            try (Connection conn = getConnection();
+                 var rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM universities")) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    log.info("universities 表已有 {} 条，跳过导入", rs.getInt(1));
+                    return;
+                }
+            } catch (SQLException e) { log.warn("检查 universities 表失败: {}", e.getMessage()); return; }
+
+            // 尝试从项目根目录或 classpath 读取 init_data.sql
+            String[] paths = {"init_data.sql", "src/init_data.sql", "data/init_data.sql"};
+            java.io.InputStream is = null;
+            for (String p : paths) {
+                java.io.File f = new java.io.File(p);
+                if (f.exists()) { try { is = new java.io.FileInputStream(f); log.info("从 {} 导入静态数据…", p); break; } catch (Exception ignored) {} }
+            }
+            if (is == null) { is = getClass().getClassLoader().getResourceAsStream("init_data.sql"); }
+            if (is == null) { log.warn("未找到 init_data.sql，跳过静态数据导入"); return; }
+
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(is, "UTF-8"));
+                 Connection conn = getConnection(); Statement s = conn.createStatement()) {
+                conn.setAutoCommit(false);
+                StringBuilder sb = new StringBuilder();
+                String line;
+                int count = 0;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("--")) continue;
+                    sb.append(line);
+                    if (line.endsWith(";")) {
+                        String sql = sb.toString();
+                        // 跳过 CREATE TABLE（已在 initSchema 中建好）
+                        if (!sql.toUpperCase().startsWith("CREATE ")) {
+                            s.executeUpdate(sql);
+                            count++;
+                        }
+                        sb.setLength(0);
+                    }
+                }
+                conn.commit();
+                log.info("✅ 导入完成: {} 条 SQL", count);
+            } catch (Exception e) {
+                log.error("导入 init_data.sql 失败: {}", e.getMessage());
+            }
+        }
+
+        /** ★ 查询全部院校数据（供 /api/university-data 用） */
+        public List<Map<String, Object>> getAllUniversities() {
+            List<Map<String, Object>> result = new ArrayList<>();
+            String sql = "SELECT name, rank, province, tier, cs_url, adm_url, note, xhs FROM universities ORDER BY rank, name";
+            try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+                var rs = ps.executeQuery();
+                while (rs.next()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name",     rs.getString("name"));
+                    m.put("rank",     rs.getInt("rank"));
+                    m.put("province", rs.getString("province"));
+                    m.put("tier",     rs.getString("tier"));
+                    m.put("csUrl",    rs.getString("cs_url"));
+                    m.put("admUrl",   rs.getString("adm_url"));
+                    m.put("note",     rs.getString("note"));
+                    // xhs 是 JSON 数组字符串，直接保留给前端解析
+                    m.put("xhs",      rs.getString("xhs"));
+                    // 查询该校的院系
+                    m.put("depts",    getDepartments(conn, rs.getString("name")));
+                    result.add(m);
+                }
+            } catch (SQLException e) { log.warn("getAllUniversities: {}", e.getMessage()); }
+            return result;
+        }
+
+        private List<Map<String, String>> getDepartments(Connection conn, String univName) {
+            List<Map<String, String>> depts = new ArrayList<>();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT dept_name, com_status FROM departments WHERE univ_name=? ORDER BY id")) {
+                ps.setString(1, univName);
+                var rs = ps.executeQuery();
+                while (rs.next()) {
+                    Map<String, String> d = new LinkedHashMap<>();
+                    d.put("n", rs.getString("dept_name"));
+                    d.put("c", rs.getString("com_status"));
+                    depts.add(d);
+                }
+            } catch (SQLException e) { log.warn("getDepartments({}): {}", univName, e.getMessage()); }
+            return depts;
+        }
+
+        /** 插入或更新教师（按 profile_url 去重 + name+university 去重） */
         public boolean upsertTeacher(Teacher t) {
+            // ★ 先检查同名同校是否已存在（不同URL但同一个人）
+            if (existsByNameAndUniv(t.getName(), t.getUniversity())) {
+                log.debug("跳过重复: {} @ {} (已有不同URL的记录)", t.getName(), t.getUniversity());
+                return false;
+            }
             String sql = """
                 INSERT INTO teachers
                   (name,university,department,profile_url,title,research_areas,email,google_scholar,scraped_at)
@@ -260,6 +378,17 @@ public class BaoyanApp {
                  PreparedStatement ps = conn.prepareStatement(
                      "SELECT 1 FROM teachers WHERE profile_url=?")) {
                 ps.setString(1, url);
+                return ps.executeQuery().next();
+            } catch (SQLException e) { return false; }
+        }
+
+        /** ★ 按姓名+学校判重（防止同一人不同URL重复入库） */
+        public boolean existsByNameAndUniv(String name, String university) {
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                     "SELECT 1 FROM teachers WHERE name=? AND university=?")) {
+                ps.setString(1, name);
+                ps.setString(2, university);
                 return ps.executeQuery().next();
             } catch (SQLException e) { return false; }
         }
@@ -327,6 +456,21 @@ public class BaoyanApp {
                 }
             } catch (SQLException e) { log.error("countSchoolInfoByCategory: {}", e.getMessage()); }
             return out;
+        }
+
+        /** ResultSet 行 → SchoolInfo 对象（供 searchSchoolInfo 调用） */
+        private SchoolInfo mapSchoolInfoRow(ResultSet rs) throws SQLException {
+            SchoolInfo s = new SchoolInfo();
+            s.setId(rs.getLong("id"));
+            s.setUniversity(rs.getString("university"));
+            s.setCategory(rs.getString("category"));
+            s.setTitle(rs.getString("title"));
+            s.setUrl(rs.getString("url"));
+            s.setSource(rs.getString("source"));
+            s.setSnippet(rs.getString("snippet"));
+            s.setPublishedAt(rs.getString("published_at"));
+            s.setScrapedAt(rs.getString("scraped_at"));
+            return s;
         }
 
         /** 多条件查询，任意参数可为 null 表示不过滤 */
@@ -445,6 +589,52 @@ public class BaoyanApp {
 
         /** 当前正在后台爬取的院校名称集合（用于 /scrape/progress 端点） */
         private static final Set<String> activeScrapingJobs = ConcurrentHashMap.newKeySet();
+
+        // ── GET /api/university-data ── ★ 从数据库读取全部院校数据（前端主入口）
+        @GetMapping("/university-data")
+        public ResponseEntity<Map<String, Object>> getUniversityData() {
+            List<Map<String, Object>> all = db.getAllUniversities();
+            List<Map<String, Object>> unis = new ArrayList<>();
+            Map<String, Object> meta = new LinkedHashMap<>();
+
+            for (Map<String, Object> u : all) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, String>> depts = (List<Map<String, String>>) u.get("depts");
+                boolean hasDepts = depts != null && !depts.isEmpty();
+                boolean hasComData = hasDepts; // 有院系数据 = 有 com 数据
+
+                if (hasComData) {
+                    // 985 / 有 com 数据的 211 → 放入 unis 数组
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("rank",     u.get("rank"));
+                    entry.put("name",     u.get("name"));
+                    entry.put("province", u.get("province"));
+                    entry.put("tier",     u.get("tier"));
+                    entry.put("csUrl",    u.getOrDefault("csUrl", ""));
+                    entry.put("admUrl",   u.getOrDefault("admUrl", ""));
+                    entry.put("depts",    depts);
+                    entry.put("note",     u.getOrDefault("note", ""));
+                    // xhs 是 JSON 字符串，解析成数组
+                    String xhsStr = (String) u.getOrDefault("xhs", "[]");
+                    try { entry.put("xhs", new com.fasterxml.jackson.databind.ObjectMapper().readValue(xhsStr, List.class)); }
+                    catch (Exception e) { entry.put("xhs", List.of()); }
+                    unis.add(entry);
+                } else {
+                    // 211 / 无 com 数据 → 放入 meta 对象
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("tier",     u.get("tier"));
+                    m.put("province", u.get("province"));
+                    m.put("note",     u.getOrDefault("note", ""));
+                    meta.put((String) u.get("name"), m);
+                }
+            }
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("unis", unis);
+            resp.put("meta", meta);
+            resp.put("total", all.size());
+            return ResponseEntity.ok(resp);
+        }
 
         // ── GET /api/universities ─────────────────────────────────────────────
 
@@ -608,7 +798,7 @@ public class BaoyanApp {
             }
             final List<String> finalTargets = targets;
 
-            Thread.ofVirtual().start(() -> {
+            new Thread(() -> {
                 try {
                     Map<String, Object> r;
                     if (finalTargets.isEmpty()) {
@@ -625,7 +815,7 @@ public class BaoyanApp {
                 } finally {
                     finalTargets.forEach(activeScrapingJobs::remove);
                 }
-            });
+            }).start();
             return ResponseEntity.accepted().body(Map.of(
                 "status",  "started",
                 "targets", finalTargets.isEmpty() ? "全部高校" : finalTargets,
