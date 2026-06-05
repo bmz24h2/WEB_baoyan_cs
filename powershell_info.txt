@@ -6,3 +6,6 @@ git使用：
 git add .
 git commit -m "描述改了什么"
 git push
+
+删除： 
+git rm "XX.xx"
