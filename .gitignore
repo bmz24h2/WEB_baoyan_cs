@@ -1,0 +1,158 @@
+# ===========================
+# 环境变量 & API Keys
+# ===========================
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*
+*.env
+
+# 密钥 & 证书
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+*.keystore
+*.jks
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# 配置文件中的敏感信息
+config/secrets.*
+config/database.yml
+secrets.yml
+secrets.json
+credentials.json
+service-account*.json
+*-credentials.json
+*-service-account.json
+token.json
+tokens.json
+auth.json
+
+# ===========================
+# 操作系统
+# ===========================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*
+
+# ===========================
+# 编辑器 & IDE
+# ===========================
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/*.code-snippets
+.history/
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
+*.swp
+*.swo
+Session.vim
+
+# ===========================
+# 语言 & 框架
+# ===========================
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/cache
+.pnp.*
+package-lock.json.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# ===========================
+# 日志 & 临时文件
+# ===========================
+*.log
+*.logs
+logs/
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.backup
+*.orig
+*.cache
+
+# ===========================
+# 数据库
+# ===========================
+*.sqlite
+*.sqlite3
+*.db
+*.sql.backup
+dump.sql
+
+# ===========================
+# 构建产物
+# ===========================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.cache/
+coverage/

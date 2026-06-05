@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn spring-boot:run -q)",
+      "Bash(curl -s --max-time 5 http://localhost:8080/api/teachers/stats)",
+      "Bash(where mvn *)",
+      "Bash(where java *)",
+      "Bash(java -version)",
+      "Bash(find /c/Users/lenovo /d -name \"mvn\" -o -name \"mvn.cmd\" 2>/dev/null | head -5)",
+      "Read(//c/Users/lenovo/**)",
+      "WebFetch(domain:math.jiangnan.edu.cn)"
+    ]
+  }
+}
