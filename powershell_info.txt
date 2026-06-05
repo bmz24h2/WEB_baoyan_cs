@@ -1,2 +1,8 @@
 
 清理重复：Get-Content cleanup_duplicates.sql -Encoding UTF8 | sqlite3 output/faculty.db
+git使用：
+上传：git push -u origin main
+修改之后：
+git add .
+git commit -m "描述改了什么"
+git push
