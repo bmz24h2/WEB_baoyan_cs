@@ -238,27 +238,70 @@ public class DatabaseService {
                   research_areas LIKE '%优质资源%' OR research_areas LIKE '%合作纽带%'
                 """);
             if (cleaned > 0) log.info("🧹 自动清理垃圾教师记录 {} 条", cleaned);
+
+            // ★ FTS5 全文索引：在 initSchema 内直接建好，不依赖 AnalyticsController。
+            //   必须放在垃圾清理 DELETE 之后：清理触发触发器，FTS5 必须已存在。
+            //   ensureFts5 幂等（IF NOT EXISTS），正常启动走这里，损坏走 catch。
+            ensureFts5(s);
+
         } catch (SQLException e) {
-            // ★ FTS5 虚拟表损坏（SQLITE_CORRUPT_VTAB）：删除损坏的 shadow 表后自愈
-            //   触发场景：上面的 DELETE FROM teachers 会触发 FTS5 同步触发器，
-            //   若 teachers_fts 的 shadow 表损坏（database disk image is malformed），
-            //   整个清理事务中断。删除 FTS5 后由 AnalyticsController 启动时重建。
+            // ★ FTS5 虚拟表损坏（SQLITE_CORRUPT_VTAB）：删除损坏的 shadow 表后立即重建
             String msg = e.getMessage() == null ? "" : e.getMessage();
-            if (msg.contains("CORRUPT") || msg.contains("malformed") || msg.contains("virtual table")) {
-                log.warn("⚠️ FTS5 全文索引损坏，正在删除损坏的 shadow 表以自愈…");
+            if (msg.contains("CORRUPT") || msg.contains("malformed") || msg.contains("virtual table")
+                    || msg.contains("teachers_fts")) {
+                log.warn("⚠️ FTS5 全文索引损坏，正在删除并重建…");
                 try (Connection c2 = getConnection(); Statement s2 = c2.createStatement()) {
                     for (String tbl : new String[]{
                             "teachers_fts", "teachers_fts_data", "teachers_fts_idx",
                             "teachers_fts_docsize", "teachers_fts_config"}) {
                         try { s2.execute("DROP TABLE IF EXISTS " + tbl); } catch (SQLException ignored) {}
                     }
-                    log.info("✅ 损坏的 FTS5 表已删除，将由全文索引初始化重建");
+                    // ★ 删除后立即重建，不再依赖 AnalyticsController
+                    ensureFts5(s2);
+                    log.info("✅ FTS5 已自愈重建");
                 } catch (SQLException ex2) {
                     log.error("FTS5 自愈失败: {}", ex2.getMessage());
                 }
             } else {
                 log.error("DB 初始化失败: {}", e.getMessage());
             }
+        }
+    }
+
+    /**
+     * ★ 建立/确保 FTS5 全文索引虚拟表和同步触发器。
+     * 幂等（IF NOT EXISTS），可安全重复调用。
+     * initSchema() 内调用保证爬虫写库前 FTS5 已就绪；
+     * AnalyticsController 也可调用做二次确认。
+     */
+    public void ensureFts5(Statement s) {
+        try {
+            s.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS teachers_fts
+                USING fts5(name, university, department, research_areas, title,
+                           content='teachers', content_rowid='id',
+                           tokenize='unicode61')
+                """);
+            s.execute("""
+                CREATE TRIGGER IF NOT EXISTS teachers_ai AFTER INSERT ON teachers BEGIN
+                    INSERT INTO teachers_fts(rowid, name, university, department, research_areas, title)
+                    VALUES (new.id, new.name, new.university, new.department, new.research_areas, new.title);
+                END""");
+            s.execute("""
+                CREATE TRIGGER IF NOT EXISTS teachers_au AFTER UPDATE ON teachers BEGIN
+                    INSERT INTO teachers_fts(teachers_fts, rowid, name, university, department, research_areas, title)
+                    VALUES ('delete', old.id, old.name, old.university, old.department, old.research_areas, old.title);
+                    INSERT INTO teachers_fts(rowid, name, university, department, research_areas, title)
+                    VALUES (new.id, new.name, new.university, new.department, new.research_areas, new.title);
+                END""");
+            s.execute("""
+                CREATE TRIGGER IF NOT EXISTS teachers_ad AFTER DELETE ON teachers BEGIN
+                    INSERT INTO teachers_fts(teachers_fts, rowid, name, university, department, research_areas, title)
+                    VALUES ('delete', old.id, old.name, old.university, old.department, old.research_areas, old.title);
+                END""");
+            log.debug("FTS5 虚拟表和触发器已就绪");
+        } catch (SQLException e) {
+            log.warn("FTS5 初始化跳过（扩展不支持或已存在）: {}", e.getMessage());
         }
     }
 
@@ -394,7 +437,33 @@ public class DatabaseService {
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
-            log.warn("upsertTeacher failed [{}]: {}", t.getProfileUrl(), e.getMessage());
+            String emsg = e.getMessage() == null ? "" : e.getMessage();
+            // ★ FTS5 触发器失败：自动重建后重试一次
+            if (emsg.contains("teachers_fts") || emsg.contains("no such table")) {
+                log.warn("upsertTeacher FTS5缺失，自动重建后重试 [{}]", t.getProfileUrl());
+                try (Connection c2 = getConnection(); Statement s2 = c2.createStatement()) {
+                    ensureFts5(s2);
+                } catch (SQLException ignored) {}
+                // 重试
+                try (Connection conn2 = getConnection(); PreparedStatement ps2 = conn2.prepareStatement(
+                    "INSERT INTO teachers (name,university,department,profile_url,title,research_areas,email,google_scholar,lab_name,recruiting,scraped_at,cited_count,works_count,active_year,counts_by_year) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(profile_url) DO UPDATE SET title=excluded.title, research_areas=excluded.research_areas, email=excluded.email, google_scholar=excluded.google_scholar, lab_name=COALESCE(excluded.lab_name,lab_name), recruiting=excluded.recruiting, scraped_at=excluded.scraped_at, cited_count=excluded.cited_count, works_count=excluded.works_count, active_year=excluded.active_year, counts_by_year=excluded.counts_by_year")) {
+                    ps2.setString(1, t.getName());       ps2.setString(2, t.getUniversity());
+                    ps2.setString(3, t.getDepartment()); ps2.setString(4, t.getProfileUrl());
+                    ps2.setString(5, t.getTitle());      ps2.setString(6, t.getResearchAreas());
+                    ps2.setString(7, t.getEmail());      ps2.setString(8, t.getGoogleScholar());
+                    ps2.setString(9, t.getLabName());
+                    ps2.setInt(10, Boolean.TRUE.equals(t.getRecruiting()) ? 1 : 0);
+                    ps2.setString(11, t.getScrapedAt());
+                    ps2.setInt(12, t.getCitedCount()); ps2.setInt(13, t.getWorksCount());
+                    ps2.setInt(14, t.getActiveYear()); ps2.setString(15, t.getCountsByYear());
+                    ps2.executeUpdate();
+                    return true;
+                } catch (SQLException e2) {
+                    log.warn("upsertTeacher 重试失败 [{}]: {}", t.getProfileUrl(), e2.getMessage());
+                }
+            } else {
+                log.warn("upsertTeacher failed [{}]: {}", t.getProfileUrl(), emsg);
+            }
             return false;
         }
     }

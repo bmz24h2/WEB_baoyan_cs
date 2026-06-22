@@ -28,7 +28,7 @@ Web/
 │       │   │   ├── Teacher.java                   ★ 新增 citedCount/worksCount/activeYear/countsByYear 字段
 │       │   │   └── SchoolInfo.java                招生/通知信息模型
 │       │   ├── db/
-│       │   │   └── DatabaseService.java           ★ teachers 表新增4列；upsertTeacher 同步更新
+│       │   │   └── DatabaseService.java           ★ teachers 表新增4列；upsertTeacher 同步更新；FTS5损坏自动自愈
 │       │   ├── api/
 │       │   │   ├── ApiController.java             ★ 新增 GET /api/scrape/jobs 接口
 │       │   │   ├── AuthController.java            用户认证：注册/登录/登出/whoami/改密码
@@ -43,13 +43,13 @@ Web/
 │       │   │   └── SpeechController.java          TTS代理：阿里云CosyVoice语音合成
 │       │   ├── analytics/
 │       │   │   ├── AnalyticsEventBus.java         SSE实时推送（爬取进度广播）
-│       │   │   ├── MatchService.java              ★ 新增 getDirExpand() public static getter
-│       │   │   ├── AnalyticsService.java          ★ getResearchAreas 改用 DIR_EXPAND；新增 getAreaTrend()
+│       │   │   ├── MatchService.java              ★ getDirExpand() getter；人机交互去"可视化"+10方向补英文subfield词
+│       │   │   ├── AnalyticsService.java          ★ keywordMatches() 根治AR子串误匹配；getResearchAreas 改用 DIR_EXPAND；getAreaTrend()
 │       │   │   └── AnalyticsController.java       ★ FTS5损坏自动重建；area-trend+文件缓存
 │       │   ├── scraper/
 │       │   │   ├── ScraperCore.java               爬虫基类（abstract）：策略A-H + N
-│       │   │   ├── IndirectSearch.java            ★ topics 解析；counts_by_year；research_areas 净化
-│       │   │   ├── ScraperService.java            爬虫调度（并发、队列）
+│       │   │   ├── IndirectSearch.java            ★ field/subfield 结构化解析；CS过滤金标准；counts_by_year；research_areas 净化
+│       │   │   ├── ScraperService.java            ★ 爬虫调度（并发、队列）；预设院校直连失败自动降级间接搜索；快速失败
 │       │   │   └── UniversityData.java            985/211院校配置（强弱com、预设URL）
 │       │   └── engine/
 │       │       ├── FetchEngine.java               HTTP抓取+HTML解析+isBadName姓名过滤
@@ -120,7 +120,9 @@ SQLite 操作层，所有表统一在此建立。**关键行为**：
 - `countTeachersByUniversity(name)` 精确 COUNT，不受 `search()` 的 LIMIT 500 影响
 - `getConnection()` 返回 SQLite 连接
 
-**★ 本次更新**：`teachers` 表新增4列：`cited_count INTEGER`、`works_count INTEGER`、`active_year INTEGER`、`counts_by_year TEXT`；ALTER TABLE 自动迁移旧库；`upsertTeacher()` VALUES 从11个问号扩展到15个。
+**★ teachers 表新增4列**：`cited_count INTEGER`、`works_count INTEGER`、`active_year INTEGER`、`counts_by_year TEXT`；ALTER TABLE 自动迁移旧库；`upsertTeacher()` VALUES 从11个问号扩展到15个。
+
+**★ FTS5 损坏自愈**：`initSchema()` 中 `DELETE FROM teachers`（清理垃圾数据）会触发 FTS5 同步触发器。若 `teachers_fts` 的 shadow 表损坏（启动报 `SQLITE_CORRUPT_VTAB` / `database disk image is malformed`），catch 块自动检测并删除 4 个 shadow 表（`teachers_fts_data` / `teachers_fts_idx` / `teachers_fts_docsize` / `teachers_fts_config`），随后由 `AnalyticsController` 启动时重建虚拟表，**无需手动删库**。
 
 #### `model/Teacher.java` ★ 更新
 新增4个字段（来自 OpenAlex，重爬后才有数据）：
@@ -227,6 +229,7 @@ SQLite 操作层，所有表统一在此建立。**关键行为**：
 - **awards/practice 字段边界明确**：「优秀志愿者称号」→ awards；「担任马拉松志愿者」→ practice，避免重复
 - **邮箱正则兜底**：AI 解析完后用正则从原文提取邮箱并覆盖
 - **XML 提取修复**：`extractDocxText()` 把 `<tag>` 替换为空字符串
+- **入学/毕业年月提取**：新增 eduStart/eduEnd 字段（"至今/在读"取入学年+4，月份06），正则从原文兜底匹配 YYYY.MM
 
 #### `api/InterviewController.java` ★ 更新
 模拟面试题库 CRUD：
@@ -298,7 +301,11 @@ SSE 流式对话主逻辑：
 #### `analytics/MatchService.java` ★ 更新
 导师匹配核心。
 
-**★ 本次新增**：`public static Map<String, List<String>> getDirExpand()` 方法，把 `private static DIR_EXPAND`（18个方向+语义近邻词表）暴露给 `AnalyticsService` 使用，返回 unmodifiableMap。
+**★ `getDirExpand()`**：`public static Map<String, List<String>> getDirExpand()` 方法，把 `private static DIR_EXPAND`（21 个方向键 + 语义近邻词表）暴露给 `AnalyticsService` 使用，返回 unmodifiableMap。
+
+**★ 人机交互方向去噪**：移除过宽的 `可视化`（几乎所有方向都含此词，是趋势图误匹配源），新增 `用户体验`/`UX`/`UI`/`界面设计`/`交互设计`。短英文缩写（AR/VR/UI/UX）交给 `AnalyticsService.keywordMatches` 做单词边界匹配。
+
+**★ 10 个核心方向补英文 subfield 词**（机器学习/计算机视觉/自然语言处理/大语言模型/系统体系结构/算法理论/数据库/软件工程/嵌入式/网络与通信），如「大语言模型」加 `Large Language Model`/`Generative AI`，与 OpenAlex 返回的英文方向名双向匹配。
 
 三个关键方法：
 
@@ -312,12 +319,22 @@ SSE 流式对话主逻辑：
 - `hybrid_score = α×TF-IDF基础分 + β×cosine(session_vec, teacher_vec)`
 - α=0.70，β=0.30，λ=0.80（时间衰减）
 
-#### `analytics/AnalyticsService.java` ★ 重构
+#### `analytics/AnalyticsService.java` ★ 核心修复
 统计聚合服务（带 Spring Cache 缓存）。
 
-**★ `getResearchAreas()` 重构**：改用 `matchService.getDirExpand()` 的18个方向+语义近邻词做关键词匹配，每位教师对每个方向最多计1次。解决原来统计词频导致的「生物信息/医学1386异常」和「University/of/China垃圾词」问题。
+**★ `keywordMatches(areas, keyword)` 新增——根治趋势图人机交互虚高**：
 
-**★ 新增 `getAreaTrend(minYear, maxYear)`**：从 `counts_by_year` 字段统计各方向历年活跃教师数（需重爬后才有数据），返回 `{years:[...], series:[{name, data:[...]}]}` 供折线图使用。
+问题根源：原来用 `research_areas.contains("ar")` 做关键词匹配。当关键词是 `AR`/`VR` 等 2 字母缩写时，`contains` 会命中所有含 "ar" 的英文词——`Research`/`Software`/`Hardware`/`Transportation`/`Cardiovascular`/`Learning` 全部被误判为「人机交互」，导致海量非 CS 教师被计入，趋势图人机交互一条线撑爆 Y 轴（1600+）。
+
+修复：新增 `keywordMatches()` 替换两处 `contains()`（`getAreaTrend()` 与 `getResearchAreas()`）：
+- **纯 ASCII 短词（≤4 字符**，如 AR/VR/UI/UX/GPT/LLM/NLP/GNN/HCI）→ **单词边界匹配**：命中位置前后必须是非字母数字字符，`AR` 只匹配 `AR/VR` 不匹配 `Research`
+- **中文关键词或长英文词（≥5 字符）** → 普通 `contains`（不会误命中）
+
+真实数据验证：旧逻辑 10 个样本 6 个误判，新逻辑 0 个误判。
+
+**★ `getResearchAreas()` 重构**：改用 `matchService.getDirExpand()` 的 21 方向 + 语义近邻词做关键词匹配（经 `keywordMatches` 过滤），每位教师对每个方向最多计 1 次。解决原来统计词频导致的「生物信息/医学1386异常」和「University/of/China垃圾词」问题。
+
+**★ `getAreaTrend(minYear, maxYear)`**：从 `counts_by_year` 字段统计各方向历年活跃教师数（需重爬后才有数据），返回 `{years:[...], series:[{name, data:[...]}]}` 供折线图使用。
 
 #### `analytics/AnalyticsController.java` ★ 重要更新
 **★ FTS5 损坏自动修复**：`initFTS5()` 查询时捕获 `SQLITE_CORRUPT_VTAB`，自动调 `rebuildCorruptedFTS5()` 删除 shadow 表（teachers_fts_data/idx/docsize/config）后重建虚拟表，无需手动修复数据库。
@@ -333,21 +350,40 @@ SSE 流式对话主逻辑：
 
 `OA_DIR_CONCEPTS` 列表定义10个 OpenAlex Concept ID（level≥2 精确 concept），避免使用顶层 C41008148（Computer Science）导致数据量异常偏高。
 
-#### `scraper/IndirectSearch.java` ★ 更新
-`parseOpenAlexBatchPage()` 重要改进：
+#### `scraper/IndirectSearch.java` ★ 核心重写
+`parseOpenAlexBatchPage()` 改用 OpenAlex `topics` 的 field/subfield 结构化解析：
 
-- **topics 优先**：优先解析 `topics` 字段（OpenAlex 2024+新字段，比旧 `x_concepts` 更准确），降级才用 `x_concepts/display_name` 方式
+- **CS 过滤改用 `field`**：OpenAlex 2024 用 `topics`（4 层结构 `topic→subfield→field→domain`）替代旧 `x_concepts`。每个 topic 的 `field.display_name` 必须含 `Computer Science`（OpenAlex 26 个固定学科大类之一，金标准）。非 CS field 的教授（医学/交通/大气等）直接跳过，**彻底解决非 CS 教授混入**问题
+- **研究方向改用 `subfield`**：`subfield.display_name` 是全球约 250 个规范方向名（CS 下约 15 个，如 `Artificial Intelligence`、`Computer Vision and Pattern Recognition`、`Human-Computer Interaction`），比细分 topic 名稳定。再附 1 个最具体 topic 名捕捉新方向（如 `Large Language Models`）
+- **`OA_TOPIC_CN` 翻译表扩充**：以 subfield 规范名为主键，每条译「中文 英文」混合（如 `Artificial Intelligence` → `人工智能 机器学习 深度学习 Artificial Intelligence`），让中英文检索都能命中；新增大模型/具身智能/多模态等近年方向
 - **counts_by_year 解析**：存为压缩 JSON `[{"y":2020,"w":3,"c":10}]`，只保留2015-2030年数据；从中计算 `activeYear`（最近有论文的年份）
 - **research_areas 净化**：只存干净的研究方向词，不再混入 `引用:N 论文:N` 统计数字（根治「Sun Yat-sen」「论文:4」「Université」等垃圾词的根源）
+- **降级方法 `scrapeViaOpenAlex`** 复用主方法解析，不再产生脏数据
 - **AMiner 查询词从4个扩展到10个**
 - **OpenAlex 429 限流重试**
+
+#### `scraper/ScraperService.java` ★ 更新
+爬虫调度层：`scrapeAll`（全量）/`scrapeByName`（按名匹配预设，并发）/`scrapeUnknown`（单个学校，含间接降级）。
+
+**★ 预设院校间接降级（修复清华/北大等顶尖名校爬不到）**：
+
+问题根源：爬虫有两个入口，原本只有一个会降级到间接搜索：
+- 点击单个学校 → `scrapeUnknown` → edu.cn 失败**会**降级 OpenAlex/AMiner/知乎 ✓
+- 批量 / 预设命中（清华、北大走这条）→ `scrapePresetUniversity` → **只做 edu.cn 直连，失败就返回 0，从不降级** ✗
+
+清华、北大等在 `UniversityData.ALL` 里配了 edu.cn 的院系 URL，所以走预设分支，卡在 edu.cn 直连上。而 edu.cn 在境外 / cloudflared 隧道环境普遍连不上，导致越是顶尖名校反而越爬不到。
+
+本次修复 `scrapePresetUniversity()`：
+1. **快速失败**：连续 2 个院系列表页 `null` 就放弃直连（原来逐个超时，6 个 URL 耗约 4 分钟，前端 3 分钟就报"未爬到"警告）
+2. **间接降级**：edu.cn 直连 0 位时，自动调 `scrapeFromIndirectSources`（OpenAlex 按英文校名拉全校 CS 教师 / AMiner / DBLP / 知乎），与 `scrapeUnknown` 的降级逻辑对齐
+
+重启后点清华，日志会出现 `🔄 edu.cn 直连 0 位，启动间接搜索` 然后 `[L0] OpenAlex 机构: Tsinghua University`，几十秒内拿到上百位清华 CS 教师。
 
 #### `scraper/` 包其余文件
 
 | 文件 | 职责 |
 |---|---|
 | `ScraperCore.java` | abstract 父类：KNOWN_CS/FACULTY_PATHS 等静态常量；策略 A-H（edu.cn 直连）；Strategy N（招生通知）；★ N-2/N-6 短省名大学精确匹配 |
-| `ScraperService.java` | 调度层：scrapeAll/scrapeByName（并发）/scrapeUnknown |
 | `UniversityData.java` | 985/211 院校配置：强弱 com 标注、预设院系 URL、UNIV_EN_NAMES 英文名映射 |
 
 #### `engine/FetchEngine.java`
@@ -424,7 +460,7 @@ GET /api/auth/whoami
 
 **`index.html`**：院校导航。`loadDataFromApi()` 拉取院校，`render()` 筛选+渲染，`_openPBase(u)` 院校详情面板；面板内 `window.openChatWith(school,teacher)` 跳转 AI 顾问。★ 图例「博/硕不同」加 tooltip。
 
-**`tools.html`** ★ 重大更新：见上方「申请追踪」章节。
+**`tools.html`** ★ 重大更新：申请追踪（夏令营/预推免/实验室三类型）、时间线、邮件生成、GPA 换算。各类型独立 localStorage。
 
 **`advisor-match.html`** ★：
 - `doMatch()` → POST `/api/recommend`（含 `sessionEvents`）
@@ -435,7 +471,7 @@ GET /api/auth/whoami
 **`analytics.html`** ★ 重要修复：
 - **面板嵌套 Bug 修复**
 - **`api-status` 元素**补充定义
-- **研究热度子页**：条形图改用 DIR_EXPAND 18个方向关键词匹配；新增折线图；图例移到外部
+- **研究热度子页**：条形图改用 DIR_EXPAND 21个方向关键词匹配；新增折线图（近10年趋势）；图例移到外部
 - **已爬院校子页**：接入 `/api/scrape/jobs` 接口
 
 **`chat.html`** ★：流式输出；历史会话侧边栏；模型选择面板；`MODELS` 常量与 `ModelRegistry.java` 同步。
@@ -467,6 +503,7 @@ GET /api/auth/whoami
 - 简历上传 → AI 解析 → 弹窗预览（含获奖荣誉）→ 一键填入
 - ★ 新增「获奖荣誉」字段（`p-awards`）：解析简历后自动填入，供 AI 填充简历「技能证书」栏
 - ★ 新增「实践与志愿经历」字段（`p-practice`）：供个人陈述/推荐信补充
+- ★ 新增「入学/毕业年月」字段（`p-edu-start`/`p-edu-end`）
 - ★ **分字段保存**：每个 section 右上角有「仅保存此项」按钮，只更新该字段到 localStorage + 云端，不影响其他字段；按钮点击后显示「✅ 已保存」2秒后恢复
 - 个人信息存 localStorage；登录后云同步
 - 头像上传：压缩至 120×120 px
@@ -499,6 +536,7 @@ GET /api/auth/whoami
 | 目标院校 | 文档生成 `f-target-school` + 个人陈述目标院校框 |
 | 获奖荣誉 | AI 填充简历「技能证书」栏；个人陈述补充 |
 | 实践经历 | 个人陈述、推荐信补充内容 |
+| 入学/毕业年月 | 文档生成简历模板 |
 
 ---
 
@@ -764,7 +802,7 @@ spring.datasource.url=jdbc:sqlite:output/faculty.db
 | `department` | TEXT | 院系 |
 | `profile_url` | TEXT UNIQUE | 主页 |
 | `title` | TEXT | 职称 |
-| `research_areas` | TEXT | 研究方向（重爬后为净化数据，不含统计数字） |
+| `research_areas` | TEXT | 研究方向（重爬后为净化数据，subfield 规范名，不含统计数字） |
 | `email` | TEXT | 邮箱 |
 | `google_scholar` | TEXT | Scholar 链接 |
 | `lab_name` | TEXT | 课题组 |
@@ -829,12 +867,17 @@ spring.datasource.url=jdbc:sqlite:output/faculty.db
 |---|---|
 | **加新 REST 接口（院校/教师）** | `api/ApiController.java` |
 | **加新统计图表** | `analytics/AnalyticsService.java` + `AnalyticsController.java` + `analytics.html` |
+| **改趋势图/方向匹配的关键词逻辑** | `analytics/AnalyticsService.java` → `keywordMatches()`（短英文缩写边界匹配 + 中文/长词 contains） |
+| **调整 OpenAlex CS 过滤/方向分类** | `scraper/IndirectSearch.java` → `parseOpenAlexBatchPage()`（field 过滤 + subfield 分类） |
+| **扩展某方向的英文匹配词** | `analytics/MatchService.java` → `DIR_EXPAND` 对应方向加英文 subfield 名 |
+| **改预设院校直连/降级策略** | `scraper/ScraperService.java` → `scrapePresetUniversity()`（快速失败阈值 + 间接降级） |
 | **改匹配算法权重** | `analytics/MatchService.java` → `parallelScore()` |
 | **改梯队过滤 SQL** | `analytics/MatchService.java` → `fts5Recall()` / `likeRecall()` |
 | **扩展语义方向扩展词** | `analytics/MatchService.java` → `DIR_EXPAND` 静态 Map |
 | **调整 Session 重排权重** | `analytics/MatchService.java` → `α=0.70 β=0.30 λ=0.80` |
 | **改趋势图查询方向** | `analytics/AnalyticsController.java` → `OA_DIR_CONCEPTS` |
 | **清除趋势缓存** | `DELETE /api/analytics/area-trend` 或删除 `output/area_trend_cache.json` |
+| **修 FTS5 全文索引损坏** | 自动自愈（`DatabaseService.initSchema()` catch + `AnalyticsController.rebuildCorruptedFTS5()`），或手动删 `teachers_fts*` 表 |
 | **扩展 OpenAlex 英中翻译** | `scraper/IndirectSearch.java` → `OA_TOPIC_CN` 静态 Map |
 | **改爬虫姓名过滤** | `engine/FetchEngine.java` → `NAME_BLACKLIST`/`NAME_BADROOTS`/`isBadName()` |
 | **添加新院校到爬虫** | `scraper/UniversityData.java` → `ALL` 列表；同步更新 `init_data.sql` |

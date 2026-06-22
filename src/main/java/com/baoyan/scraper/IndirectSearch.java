@@ -137,6 +137,37 @@ public class IndirectSearch extends ScraperCore {
         m.put("燕山大学",     "Yanshan University");
         m.put("福州大学",     "Fuzhou University");
         m.put("南京师范",     "Nanjing Normal University");
+        // ★ 补充：行业特色211（之前缺失，导致 AMiner/DBLP/Bing 拿不到英文名）
+        m.put("大连海事",     "Dalian Maritime University");
+        m.put("西南政法",     "Southwest University of Political Science and Law");
+        m.put("中国政法",     "China University of Political Science and Law");
+        m.put("对外经贸",     "University of International Business and Economics");
+        m.put("中央财经",     "Central University of Finance and Economics");
+        m.put("上海财经",     "Shanghai University of Finance and Economics");
+        m.put("西南财经",     "Southwestern University of Finance and Economics");
+        m.put("中国传媒",     "Communication University of China");
+        m.put("北京体育",     "Beijing Sport University");
+        m.put("上海体育",     "Shanghai University of Sport");
+        m.put("中央民族",     "Minzu University of China");
+        m.put("中南民族",     "South-Central Minzu University");
+        m.put("西北民族",     "Northwest Minzu University");
+        m.put("长安大学",     "Chang'an University");
+        m.put("西安建筑科技", "Xi'an University of Architecture and Technology");
+        m.put("华北电力",     "North China Electric Power University");
+        m.put("北京化工",     "Beijing University of Chemical Technology");
+        m.put("中国矿业",     "China University of Mining and Technology");
+        m.put("中国石油",     "China University of Petroleum");
+        m.put("中国地质",     "China University of Geosciences");
+        m.put("太原理工",     "Taiyuan University of Technology");
+        m.put("武汉理工",     "Wuhan University of Technology");
+        m.put("合肥工业",     "Hefei University of Technology");
+        m.put("燕山大学",     "Yanshan University");
+        m.put("福州大学",     "Fuzhou University");
+        m.put("东华大学",     "Donghua University");
+        m.put("河海大学",     "Hohai University");
+        m.put("南京农业",     "Nanjing Agricultural University");
+        m.put("东北农业",     "Northeast Agricultural University");
+        m.put("华中农业",     "Huazhong Agricultural University");
         UNIV_EN_NAMES = Collections.unmodifiableMap(m);
     }
 
@@ -1006,13 +1037,24 @@ public class IndirectSearch extends ScraperCore {
                 if (tnm.find()) topicNames.add(tnm.group(1).trim());
             }
 
-            // ★ CS 过滤：field 必须含 "Computer Science"（金标准，OpenAlex 26个固定field之一）
-            //   放宽：也接受邻近 field（人机交互/控制可能归在别处）
+            // ★ CS 过滤：field 必须含 CS 相关字段
+            //   放宽规则（原来只认 "Computer Science"）：
+            //   - 交通/航海/工程类院校的 CS 老师经常被 OpenAlex 打成 "Engineering" field
+            //   - 信息管理、电信等方向有时归 "Decision Sciences" 或 "Social Sciences"
+            //   - 宁可多收（upsert 逻辑保证不重复），不漏掉航海/矿业/农业等特色211的CS老师
             boolean isCs = fields.stream().anyMatch(f ->
                    f.equals("Computer Science")
                 || f.contains("Computer")
-                || f.equals("Artificial Intelligence"));
-            if (!isCs) continue;  // 非CS field 直接跳过（彻底解决医学/交通教授混入）
+                || f.equals("Artificial Intelligence")
+                || f.contains("Engineering")          // 工程院校 CS 老师常被归这里
+                || f.contains("Mathematics")           // 算法/理论方向
+                || f.contains("Physics")               // 量子计算
+                || f.contains("Decision Sciences")     // 信息管理/运筹
+                || f.contains("Information")            // 信息学相关
+                || f.contains("Telecommunications"));   // 通信/网络
+            // 如果 topics 字段完全为空（OpenAlex 未打标签），也保留
+            // 依赖 works>=2 的基础过滤已足够
+            if (!isCs && !topicsBlock.isEmpty() && !fields.isEmpty()) continue;
 
             // ★ 研究方向 = subfield（规范名）优先，附加最相关的 topic 名
             //   存储格式："中文翻译 英文subfield"，让中英文检索都能匹配

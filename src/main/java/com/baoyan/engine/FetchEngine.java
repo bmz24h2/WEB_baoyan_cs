@@ -66,8 +66,8 @@ public class FetchEngine {
 
     @Value("${scraper.request-delay-min:600}")  long delayMin;
     @Value("${scraper.request-delay-max:1500}") long delayMax;
-    @Value("${scraper.max-retries:3}")          int  maxRetries;
-    @Value("${scraper.timeout:18000}")          int  timeout;
+    @Value("${scraper.max-retries:2}")          int  maxRetries;
+    @Value("${scraper.timeout:10000}")          int  timeout;
     @Value("${scraper.profile-workers:4}")      int  profileWorkers;
     @Value("${scraper.wayback-fallback:true}")  boolean waybackFallback;
 
@@ -375,8 +375,10 @@ public class FetchEngine {
             }
         }
 
-        // ★ NEW: Wayback Machine 兜底
-        if (waybackFallback) {
+        // ★ Wayback 兜底：跳过 edu.cn（连不上时 Wayback 也超慢，且抓到的是旧垃圾页，
+        //   反而让 consecutiveFail 无法正常计数，导致快速失败机制失效）
+        boolean isEduCn = url != null && url.contains(".edu.cn");
+        if (waybackFallback && !isEduCn) {
             Document wb = fetchFromWayback(url);
             if (wb != null) return wb;
         }

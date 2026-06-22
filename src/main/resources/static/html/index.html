@@ -36,7 +36,7 @@
 
   <main class="main">
     <div class="page-header">
-      <h1>985 / 211 CS 预推免强弱 com 导航</h1>
+      <h1>985 / 211 CS 预推免强弱 com 导航 <span id="api-status" class="api-status"></span></h1>
       <p>数据来源：小红书 @8052244911 · 211 排名图 · 官网链接为已知域名</p>
     </div>
 
@@ -77,13 +77,15 @@
 <script>
 // 检测后端状态
 (async()=>{
+  const el=document.getElementById('api-status');
+  if(!el) return;                       // 元素不存在时直接跳过，避免 null.textContent 报错
   try{
     const r=await fetch('/api/teachers/stats',{signal:AbortSignal.timeout(2000)});
-    if(r.ok){document.getElementById('api-status').textContent='✅ 后端已连接';document.getElementById('api-status').classList.add('ok');}
+    if(r.ok){el.textContent='✅ 后端已连接';el.classList.add('ok');}
     else throw new Error();
   }catch(_){
-    document.getElementById('api-status').textContent='⚠ 后端未连接';
-    document.getElementById('api-status').classList.add('warn');
+    el.textContent='⚠ 后端未连接';
+    el.classList.add('warn');
   }
 })();
 </script>

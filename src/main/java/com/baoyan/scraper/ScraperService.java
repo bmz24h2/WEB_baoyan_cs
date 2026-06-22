@@ -158,13 +158,13 @@ public class ScraperService {
                         for (String fp : core.discoverFacultyPages(col.url))
                             n += engine.scrapeTeachersFromPage(fp, univName, col.name);
                 }
-                // 快速失败：连续 3 次 null 即放弃剩余路径
+                // 快速失败：连续 2 次 null 即放弃剩余路径（scrapeUnknown 直连分支）
                 if (n == 0) {
                     int consecutive = 0;
                     for (String path : ScraperCore.FACULTY_PATHS) {
                         int got = engine.scrapeTeachersFromPage(finalBase + path, univName, "");
                         if (got == 0) {
-                            if (++consecutive >= 3) {
+                            if (++consecutive >= 2) {
                                 log.warn("【{}】连续 {} 次 edu.cn 失败，提前放弃直连", univName, consecutive);
                                 break;
                             }
@@ -363,7 +363,7 @@ public class ScraperService {
     private int scrapePresetUniversity(UniversityData.UniversityConfig u) {
         int count=0;
         log.info("🎓 {}",u.name);
-        // ── edu.cn 直连（快速失败：连续 2 个院系列表页 null 即放弃直连，立即转间接搜索）──
+        // ── edu.cn 直连（快速失败：第 1 次失败/重定向即放弃直连，立即转间接搜索）──
         int consecutiveFail = 0;
         outer:
         for (UniversityData.DeptConfig dept : u.departments) {
@@ -371,15 +371,28 @@ public class ScraperService {
                 Document listDoc=engine.fetchRobust(listUrl);
                 if (listDoc==null) {
                     log.error("  ❌ {}",listUrl); db.logScrape(listUrl,"FAILED","null");
-                    // ★ 快速失败：连续 2 次 edu.cn 列表页失败就放弃直连，避免逐个超时耗光时间
-                    if (++consecutiveFail >= 2) {
-                        log.warn("  ⚡ 【{}】连续 {} 次 edu.cn 列表页失败，放弃直连，转间接搜索", u.name, consecutiveFail);
+                    // ★ 快速失败：第 1 次 edu.cn 列表页失败就放弃直连，立即转间接搜索
+                    //   原来阈值为2，且 Wayback 兜底会返回非null文档导致计数不增加，
+                    //   实际上从不触发快速失败，导致等待时间极长。
+                    if (++consecutiveFail >= 1) {
+                        log.warn("  ⚡ 【{}】edu.cn 列表页失败，立即放弃直连，转间接搜索", u.name);
                         break outer;
                     }
                     continue;
                 }
-                consecutiveFail = 0; // 成功一次就重置
-                if (core.isRedirectedToHomepage(listDoc, listUrl)) { log.warn("  ⚠️ 首页重定向跳过: {}",listUrl); continue; }
+                // ★ 首页重定向也计入连续失败（原来只 continue，consecutiveFail 不增加）
+                //   edu.cn 反爬把所有请求重定向到首页时，原代码会无限 continue，
+                //   耗尽所有 dept URL 后才进入间接搜索。
+                if (core.isRedirectedToHomepage(listDoc, listUrl)) {
+                    log.warn("  ⚠️ 首页重定向，计入失败: {}",listUrl);
+                    db.logScrape(listUrl,"FAILED","homepage_redirect");
+                    if (++consecutiveFail >= 1) {
+                        log.warn("  ⚡ 【{}】首页重定向，立即放弃直连，转间接搜索", u.name);
+                        break outer;
+                    }
+                    continue;
+                }
+                consecutiveFail = 0; // 真正拿到有效页面才重置
                 listDoc.setBaseUri(listUrl);
                 List<Map<String,String>> entries=engine.parseTeacherLinksCompat(
                     listDoc,listUrl,dept.teacherLinkSelector,dept.nameSelector);
