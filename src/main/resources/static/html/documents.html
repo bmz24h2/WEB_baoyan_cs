@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>文档生成 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+.doc-layout{display:grid;grid-template-columns:320px 1fr;gap:0;height:calc(100vh - 48px);overflow:hidden}
+/* 左侧配置 */
+.doc-sidebar{border-right:.5px solid var(--border);background:var(--surface);overflow-y:auto;padding:0}
+.sidebar-section{padding:16px 18px;border-bottom:.5px solid var(--border)}
+.sidebar-title{font-size:13px;font-weight:700;margin-bottom:10px}
+.field-label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px}
+.field-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:7px;padding:8px 11px;font-size:12px;background:var(--surface2);color:var(--text1);outline:none}
+.field-input:focus{border-color:var(--purple-mid)}
+.field-group{margin-bottom:10px}
+.gen-btns{display:flex;gap:8px;padding:14px 18px;border-bottom:.5px solid var(--border)}
+.btn-docx{flex:1;background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-pdf{flex:1;background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:13px;cursor:pointer}
+.btn-docx:hover{opacity:.88} .btn-pdf:hover{background:var(--border2)}
+.btn-docx:disabled,.btn-pdf:disabled{opacity:.5;cursor:not-allowed}
+.upload-zone{border:2px dashed var(--border2);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all .15s;margin:0 18px 12px;font-size:12px;color:var(--text3)}
+.upload-zone:hover{border-color:var(--purple-mid);color:var(--purple-mid)}
+.upload-zone.drag-over{border-color:var(--purple-mid);background:var(--purple-bg)}
+/* 右侧模板区 */
+.doc-main{overflow-y:auto;background:var(--bg);padding:20px 24px}
+.cat-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:16px 0 8px}
+.cat-title:first-child{margin-top:0}
+.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:4px}
+.tpl-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;position:relative}
+.tpl-card:hover{border-color:var(--purple-mid);background:var(--purple-bg)}
+.tpl-card.sel{border-color:var(--purple-mid);background:var(--purple-bg);box-shadow:0 0 0 2px var(--purple-mid)}
+.tpl-icon{font-size:24px;margin-bottom:6px}
+.tpl-name{font-size:13px;font-weight:700;margin-bottom:3px}
+.tpl-desc{font-size:11px;color:var(--text3);line-height:1.5}
+.tpl-del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;opacity:0;transition:opacity .1s}
+.tpl-card:hover .tpl-del{opacity:1}
+.tpl-badge{display:inline-block;background:var(--amber-bg,#fffbeb);color:var(--amber-txt,#8a6000);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-top:4px}
+/* 预览 */
+.preview-box{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 22px;margin-top:16px;font-size:13px;line-height:1.9;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:var(--text2)}
+.preview-title{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* 状态条 */
+.status-strip{padding:10px 18px;background:var(--surface);border-top:.5px solid var(--border);font-size:11px;color:var(--text3)}
+.profile-bar{background:var(--green-bg,#e8f5e9);border-radius:6px;padding:8px 12px;font-size:11px;margin:0 18px 10px;color:var(--green-txt,#1a7a3a)}
+@media(max-width:800px){.doc-layout{grid-template-columns:1fr;height:auto}.doc-sidebar{height:auto;max-height:450px}}
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+<nav class="topnav"></nav>
+
+<div class="doc-layout">
+  <!-- 左侧：信息 + 下载 -->
+  <div class="doc-sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">📋 个人信息</div>
+      <div class="profile-bar" id="profile-bar">未读取到个人信息，请先<a href="/html/profile.html" style="color:inherit;font-weight:700">完善个人信息页</a></div>
+      <div class="field-group">
+        <label class="field-label">姓名</label>
+        <input class="field-input" id="f-name" placeholder="张三">
+      </div>
+      <div class="field-group">
+        <label class="field-label">本科院校</label>
+        <input class="field-input" id="f-school" placeholder="华中科技大学">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field-group">
+          <label class="field-label">专业</label>
+          <input class="field-input" id="f-major" placeholder="CS">
+        </div>
+        <div class="field-group">
+          <label class="field-label">GPA</label>
+          <input class="field-input" id="f-gpa" type="text" placeholder="3.8 或 3.91/4.00">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field-group">
+          <label class="field-label">排名前 X%</label>
+          <input class="field-input" id="f-rank" type="text" placeholder="10 或 2/139">
+        </div>
+        <div class="field-group">
+          <label class="field-label">邮箱</label>
+          <input class="field-input" id="f-email" placeholder="stu@edu.cn">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">科研经历（简述，自动填入模板）</label>
+        <textarea class="field-input" id="f-exp" rows="3" placeholder="参与XX方向课题，熟悉PyTorch，投稿CVPR…" style="resize:vertical;font-size:12px;line-height:1.5"></textarea>
+      </div>
+    </div>
+
+    <!-- 模板特定字段（按需显示） -->
+    <div class="sidebar-section" id="extra-fields">
+      <div class="sidebar-title">📌 模板专属字段</div>
+      <div class="field-group">
+        <label class="field-label">目标院校</label>
+        <input class="field-input" id="f-target-school" placeholder="浙江大学">
+      </div>
+      <div class="field-group" id="row-prof" style="display:none">
+        <label class="field-label">目标导师姓名</label>
+        <input class="field-input" id="f-prof-name" placeholder="张三（教授）">
+      </div>
+      <div class="field-group" id="row-dir">
+        <label class="field-label">研究方向</label>
+        <input class="field-input" id="f-dir" placeholder="大语言模型、计算机视觉…">
+      </div>
+      <div class="field-group" id="row-position" style="display:none">
+        <label class="field-label">意向岗位 / 保研方向</label>
+        <input class="field-input" id="f-position" placeholder="CS保研 · 人工智能方向">
+      </div>
+      <div class="field-group" id="row-recommender" style="display:none">
+        <label class="field-label">推荐人姓名 / 职称</label>
+        <input class="field-input" id="f-rec-name" placeholder="李四教授">
+      </div>
+    </div>
+
+    <div class="gen-btns">
+      <button class="btn-docx" id="btn-docx" onclick="download('docx')" disabled>下载 .docx</button>
+      <button class="btn-pdf"  id="btn-pdf"  onclick="download('pdf')"  disabled>下载 PDF</button>
+    </div>
+    <button id="btn-ai-gen" onclick="downloadAI()" disabled
+      style="width:100%;margin-top:8px;padding:10px;border-radius:8px;
+             background:linear-gradient(135deg,var(--purple-mid,#7c4dff),var(--blue-mid,#3a7bd5));
+             color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;opacity:.5">
+      ✨ AI 智能填充（AI 根据你的简历重写内容）
+    </button>
+    <div id="ai-gen-hint" style="font-size:11px;color:var(--text3);margin-top:4px;text-align:center;display:none">
+      AI 会读取完整科研/技能/获奖信息，重写职业技能/自我评价/经历描述，约 30-60 秒
+    </div>
+
+    <!-- 自定义模板上传 -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">上传自定义模板</div>
+      <div class="upload-zone" id="upload-zone"
+           onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        点击或拖拽 .docx 文件到此处上传<br>
+        <span style="font-size:10px;margin-top:4px;display:block">
+          模板中用 {name} {school} {gpa} {major} {rank_pct} {target_school} {target_dir} {prof_name} {exp_brief} 作为占位符
+        </span>
+      </div>
+      <input type="file" id="file-input" accept=".docx" style="display:none" onchange="uploadTemplate(this.files[0])">
+      <div id="upload-status" style="font-size:11px;color:var(--text3);padding:0 0 4px"></div>
+    </div>
+
+    <div class="status-strip" id="status-strip">选择左侧模板，填写信息后下载</div>
+  </div>
+
+  <!-- 右侧：模板库 + 预览 -->
+  <div class="doc-main">
+    <div id="template-grid"><!-- 由 JS 填充 --></div>
+
+    <div id="preview-section" style="display:none">
+      <div class="preview-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          👁 <span id="preview-mode-label">占位符填充预览</span>
+          <span id="selected-name" style="color:var(--purple-txt);font-weight:700;margin-left:4px"></span>
+        </div>
+        <!-- 邮件专属工具栏 -->
+        <div id="email-toolbar" style="display:none;gap:6px;flex-wrap:wrap">
+          <select id="email-style-select" onchange="applyEmailStyle()"
+                  style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text1);cursor:pointer">
+            <option value="formal">正式风格</option>
+            <option value="brief">简洁风格</option>
+            <option value="english">英文邮件</option>
+            <option value="custom">自定义</option>
+          </select>
+          <button onclick="saveEmailTemplate()"
+                  style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer">
+            保存模板
+          </button>
+          <button onclick="copyEmail()"
+                  style="font-size:11px;padding:3px 12px;border-radius:6px;border:none;background:var(--purple-mid,#7c4dff);color:#fff;cursor:pointer;font-weight:600">
+            复制内容
+          </button>
+        </div>
+      </div>
+      <!-- 普通预览（只读） -->
+      <div class="preview-box" id="preview-text" style="white-space:pre-wrap"></div>
+      <!-- 邮件可编辑区 -->
+      <textarea id="email-editor" style="display:none;width:100%;box-sizing:border-box;
+                min-height:320px;padding:16px;font-size:13px;line-height:1.8;
+                border:.5px solid var(--border);border-radius:8px;background:var(--surface);
+                color:var(--text1);resize:vertical;font-family:inherit"
+                placeholder="在此编辑邮件内容，支持 {name} {prof_name} 等变量自动填充…"
+                oninput="onEmailEdit()"></textarea>
+      <div id="email-save-hint" style="display:none;font-size:11px;color:var(--text3);padding:6px 2px 0">
+        ✏️ 已修改 · 点「保存模板」可保存为自定义风格，下次自动使用
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api/documents';
+let profile = {};
+let templates = [];
+let selectedKey = null;
+
+const ICONS = {
+  '文书':'📄', '简历':'📋', '自定义':'🔧',
+  '自我介绍':'🙋', '个人陈述':'📝', '套磁邮件':'✉️',
+  '专家推荐信':'🏆', '简历模板 A':'📋', '简历模板 B':'📋', '简历模板 C':'📋'
+};
+
+// ── 初始化 ─────────────────────────────────────────────────────────
+const PAPI = 'http://localhost:8080/api';
+
+async function loadProfileFromServer() {
+  try {
+    const r = await fetch(PAPI + '/user/profile', { credentials: 'same-origin' });
+    if (!r.ok) return false;
+    const d = await r.json();
+    if (!d.profile) return false;
+    const data = typeof d.profile === 'string' ? JSON.parse(d.profile) : d.profile;
+    if (!data || !data.name) return false;
+    localStorage.setItem('baoyan_profile', JSON.stringify(data));
+    return true;
+  } catch(_) { return false; }
+}
+
+async function init(){
+  // 先用 localStorage 立即填表，再从服务器同步覆盖
+  loadProfile();
+  const synced = await loadProfileFromServer();
+  if (synced) loadProfile();
+
+  await loadTemplates();
+
+  // 处理从 profile.html 跳转过来的自动选中
+  const params = new URLSearchParams(location.search);
+  const autoKey = params.get('autoSelect');
+  const genDocs = JSON.parse(sessionStorage.getItem('baoyan_gen_docs') || '[]');
+  if (autoKey && templates.find(t => t.key === autoKey)) {
+    selectTemplate(autoKey);
+  } else if (genDocs.length > 0) {
+    const firstValid = genDocs.find(k => templates.find(t => t.key === k));
+    if (firstValid) selectTemplate(firstValid);
+  }
+}
+
+function loadProfile(){
+  try{ profile = JSON.parse(localStorage.getItem('baoyan_profile')||'{}'); }catch(_){}
+  if(profile.name){
+    document.getElementById('profile-bar').innerHTML =
+      `✅ 已读取：<b>${profile.name}</b> @ ${profile.school||'?'}，GPA ${profile.gpa||'?'}，${profile.rankPct ? (profile.rankPct.includes('/') ? '排名 '+profile.rankPct : '前 '+profile.rankPct+'%') : '排名未填'}
+       <a href="/html/profile.html" style="margin-left:8px;color:var(--green-txt)">修改</a>`;
+    document.getElementById('f-name').value   = profile.name    || '';
+    document.getElementById('f-school').value = profile.school  || '';
+    document.getElementById('f-major').value  = profile.major   || '';
+    document.getElementById('f-gpa').value    = profile.gpa     || '';
+    document.getElementById('f-rank').value   = profile.rankPct || '';
+    document.getElementById('f-email').value  = profile.email   || '';
+    document.getElementById('f-exp').value    = profile.experience || '';
+    if(profile.targetDirs?.length){
+      document.getElementById('f-dir').value = profile.targetDirs.join('、');
+      // 同步填入「意向岗位/保研方向」字段
+      const pos = document.getElementById('f-position');
+      if(pos && !pos.value.trim())
+        pos.value = 'CS保研 · ' + profile.targetDirs.slice(0,2).join('/') + '方向';
+    }
+    if(profile.targetSchools)
+      document.getElementById('f-target-school').value = profile.targetSchools;
+  }
+}
+
+async function loadTemplates(){
+  try{
+    const r = await fetch(`${API}/templates`);
+    const d = await r.json();
+    templates = d.templates || [];
+    renderTemplateGrid();
+  }catch(e){
+    document.getElementById('template-grid').innerHTML =
+      '<div style="color:var(--text3);font-size:13px;padding:20px">⚠️ 无法连接后端，请确认已启动 mvn spring-boot:run</div>';
+  }
+}
+
+function renderTemplateGrid(){
+  const cats = [...new Set(templates.map(t=>t.category))];
+  let html = '';
+  for(const cat of cats){
+    const items = templates.filter(t=>t.category===cat);
+    html += `<div class="cat-title">${ICONS[cat]||'📄'} ${cat}</div>
+    <div class="tpl-grid">
+      ${items.map(t=>`
+        <div class="tpl-card ${t.key===selectedKey?'sel':''}" id="tpl-${CSS.escape(t.key)}"
+             onclick="selectTemplate('${t.key.replace(/'/g,"\\'")}')">
+          <div class="tpl-icon">${ICONS[t.label]||'📄'}</div>
+          <div class="tpl-name">${t.label}</div>
+          <div class="tpl-desc">${t.description}</div>
+          ${t.custom?`<span class="tpl-badge">自定义</span>
+            <button class="tpl-del" onclick="event.stopPropagation();deleteCustom('${t.key.replace(/'/g,"\\'")}')" title="删除">✕</button>`:''}
+        </div>`).join('')}
+    </div>`;
+  }
+  document.getElementById('template-grid').innerHTML = html;
+}
+
+function selectTemplate(key){
+  selectedKey = key;
+  const tpl = templates.find(t=>t.key===key);
+  if(!tpl) return;
+
+  // 更新选中样式
+  document.querySelectorAll('.tpl-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('tpl-'+CSS.escape(key))?.classList.add('sel');
+
+  // 显示/隐藏专属字段
+  const extras = tpl.extraFields || [];
+  document.getElementById('row-prof').style.display      = extras.includes('prof_name')     ? '' : 'none';
+  // 简历模板也需要显示方向/岗位字段
+  const isResume = ['resume-a','resume-b','resume-c'].includes(key);
+  document.getElementById('row-dir').style.display       = (extras.includes('target_dir')     || isResume) ? '' : 'none';
+  document.getElementById('row-position').style.display  = (extras.includes('target_position') || isResume) ? '' : 'none';
+  document.getElementById('row-recommender').style.display=extras.includes('recommender_name')?'':'none';
+
+  document.getElementById('selected-name').textContent = tpl.label;
+  document.getElementById('btn-docx').disabled = false;
+  document.getElementById('btn-pdf').disabled  = false;
+  const aiBtn = document.getElementById('btn-ai-gen');
+  if(aiBtn){ aiBtn.disabled = false; aiBtn.style.opacity='1'; }
+  const aiHint = document.getElementById('ai-gen-hint');
+  if(aiHint) aiHint.style.display='';
+  document.getElementById('status-strip').textContent = `已选择：${tpl.label}　→ 填写左侧信息后下载`;
+  document.getElementById('preview-section').style.display = 'block';
+  updatePreview(tpl.label);
+}
+
+// ── 邮件模板预设（可被用户覆盖）──────────────────────────────────
+const EMAIL_LABELS = new Set(['套磁邮件']);  // 这些 label 走邮件编辑器
+
+const EMAIL_STYLES = {
+  formal: v => `尊敬的${v.prof_name}老师：
+
+您好！我是${v.school}${v.major}专业的本科生${v.name}，冒昧打扰，深感抱歉。
+
+在研读了您近期在${v.target_dir}方向的研究工作后，我对您的课题产生了浓厚的兴趣，因此斗胆联系，希望能有机会在您的指导下开展相关研究。
+
+我的基本情况如下：本科就读于${v.school}${v.major}专业，GPA ${v.gpa}，排名专业前${v.rank_pct}%。${v.exp_brief ? '科研经历方面，' + v.exp_brief + '。' : ''}
+
+如您有意招收保研学生，我将十分荣幸能有机会参加贵组的面试或夏令营。如有任何疑问，欢迎随时回复。
+
+非常感谢您百忙中抽出时间阅读此邮件！
+
+此致
+敬礼
+
+${v.name}
+${v.school} ${v.major}
+${v.email}`,
+
+  brief: v => `${v.prof_name}老师，您好！
+
+我是${v.school}${v.name}，GPA ${v.gpa}（前${v.rank_pct}%），对您的${v.target_dir}方向研究非常感兴趣。${v.exp_brief ? v.exp_brief + '。' : ''}
+
+是否有机会参加贵组夏令营/直推？盼回复，谢谢！
+
+${v.name} | ${v.email}`,
+
+  english: v => `Dear Prof. ${v.prof_name},
+
+I am ${v.name}, a senior student from ${v.school_en} majoring in ${v.major}. I am writing to express my strong interest in joining your research group focusing on ${v.target_dir}.
+
+My GPA is ${v.gpa}, ranking top ${v.rank_pct}% in my department. ${v.exp_brief ? v.exp_brief + '.' : ''}
+
+I would be grateful for the opportunity to discuss potential research collaboration. Please find my CV attached.
+
+Thank you for your time and consideration.
+
+Sincerely,
+${v.name}
+${v.email}`
+};
+
+function isEmailTemplate(label){
+  return EMAIL_LABELS.has(label);
+}
+
+function getEmailContent(style, v){
+  // 1. 用户自定义模板优先
+  const saved = localStorage.getItem('email_custom_tpl');
+  if(style === 'custom' && saved) return fillVars(saved, v);
+  // 2. 预设风格
+  const fn = EMAIL_STYLES[style] || EMAIL_STYLES.formal;
+  return fn(v);
+}
+
+function fillVars(tpl, v){
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => v[k] || '{' + k + '}');
+}
+
+function updatePreview(label){
+  const v = getVars();
+  const isEmail = isEmailTemplate(label);
+
+  // 切换显示模式
+  document.getElementById('preview-text').style.display   = isEmail ? 'none' : '';
+  document.getElementById('email-editor').style.display   = isEmail ? '' : 'none';
+  document.getElementById('email-toolbar').style.display  = isEmail ? 'flex' : 'none';
+  document.getElementById('email-save-hint').style.display= 'none';
+  document.getElementById('preview-mode-label').textContent =
+    isEmail ? '邮件内容（可直接编辑）' : '占位符填充预览';
+
+  if(isEmail){
+    const style = document.getElementById('email-style-select').value;
+    document.getElementById('email-editor').value = getEmailContent(style, v);
+  } else {
+    const previews = {
+      '自我介绍': `尊敬的各位老师，您好！我是${v.name}，就读于${v.school}${v.major}专业。\n\nGPA ${v.gpa}，排名专业前${v.rank_pct}%，${v.exp_brief || '有一定科研经历'}。\n\n非常希望能进入${v.target_school}继续深造！谢谢！`,
+      '个人陈述': `尊敬的评审老师：\n\n我是${v.name}，来自${v.school}，就读于${v.major}专业。\n\nGPA ${v.gpa}/5.0，排名专业前${v.rank_pct}%。在${v.target_dir}方向…\n\n（完整陈述由模板生成，约1500字）`,
+      '专家推荐信': `推荐人：${v.recommender_name}　职称：${v.recommender_title}\n\n兹推荐${v.name}同学（${v.school}，${v.major}，GPA ${v.gpa}，前${v.rank_pct}%）参加${v.target_school}夏令营…\n\n（完整推荐信由模板生成）`,
+    };
+    const preview = previews[label] || `模板：${label}\n\n将根据左侧填写的信息，替换模板中的 XXX/xxx 占位符后生成文档。\n\n生成后可用 Word 或 WPS 打开编辑。`;
+    document.getElementById('preview-text').textContent = preview;
+  }
+}
+
+function applyEmailStyle(){
+  if(!selectedKey) return;
+  const tpl = templates.find(t=>t.key===selectedKey);
+  if(tpl && isEmailTemplate(tpl.label)) updatePreview(tpl.label);
+}
+
+function onEmailEdit(){
+  document.getElementById('email-save-hint').style.display = '';
+}
+
+function saveEmailTemplate(){
+  const content = document.getElementById('email-editor').value;
+  // 把当前内容里的实际值反推回 {var}（简单做法：直接保存含实际值的文本，下次填充时不替换）
+  // 更好的做法：让用户保存含 {var} 的模板
+  const hint = document.getElementById('email-save-hint');
+  // 提示用户用 {name} 等变量
+  const confirmed = confirm(
+    '保存当前内容为自定义模板？\n\n提示：可在内容中用 {name} {prof_name} {school} {gpa} {rank_pct} {target_dir} {email} 等变量，下次自动填充。\n\n确认保存？'
+  );
+  if(!confirmed) return;
+  localStorage.setItem('email_custom_tpl', content);
+  // 切换到"自定义"选项
+  document.getElementById('email-style-select').value = 'custom';
+  hint.textContent = '✅ 已保存为自定义模板';
+  setTimeout(() => { hint.style.display='none'; }, 2000);
+}
+
+function copyEmail(){
+  const text = document.getElementById('email-editor').value;
+  if(!text){ alert('邮件内容为空'); return; }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已复制';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('已复制到剪贴板');
+  });
+}
+
+function getVars(){
+  const expFull = document.getElementById('f-exp').value.trim();
+  const expBrief = expFull.length > 60 ? expFull.slice(0,60)+'…' : expFull;
+  const profName = document.getElementById('f-prof-name').value.trim() || '老师';
+  const [recName, recTitle] = (document.getElementById('f-rec-name').value.trim()).split(/[，,/ ]+/);
+  return {
+    name:           document.getElementById('f-name').value.trim()   || '同学',
+    school:         document.getElementById('f-school').value.trim() || '本科院校',
+    major:          document.getElementById('f-major').value.trim()  || '计算机科学与技术',
+    gpa:            document.getElementById('f-gpa').value           || '3.8',
+    rank_pct:       document.getElementById('f-rank').value          || '10',
+    email:          document.getElementById('f-email').value.trim()  || 'student@stu.edu.cn',
+    target_school:  document.getElementById('f-target-school').value.trim() || '目标院校',
+    target_dir:     document.getElementById('f-dir').value.trim()    || '人工智能',
+    prof_name:      profName,
+    prof_school:    document.getElementById('f-target-school').value.trim() || '目标院校',
+    target_position:document.getElementById('f-position').value.trim() || 'CS保研 · 人工智能方向',
+    recommender_name: recName || '导师姓名',
+    recommender_title: recTitle || '教授',
+    recommender_school: document.getElementById('f-school').value.trim() || '本科院校',
+    recommender_dept: '计算机学院',
+    experience:     expFull,
+    exp_brief:      expBrief,
+    exp_short:      'AI',
+    awards:         '相关竞赛奖项',
+    grade:          '2021',
+    target_school_en: 'target university',
+    school_en:      document.getElementById('f-school').value.trim() || 'my university',
+    city:           '北京',
+    edu_start:      '2021.09',
+    edu_end:        '2025.06',
+  };
+}
+
+// ── 下载 ────────────────────────────────────────────────────────────
+async function download(type){
+  if(!selectedKey){ alert('请先选择一个模板'); return; }
+  const btnId = type==='pdf'?'btn-pdf':'btn-docx';
+  const btn = document.getElementById(btnId);
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '生成中…';
+  document.getElementById('status-strip').textContent = '正在生成，请稍候…';
+
+  try{
+    const endpoint = type==='pdf'
+      ? `${API}/generate/pdf`
+      : `${API}/generate`;
+    const resp = await fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({templateKey: selectedKey, vars: getVars()})
+    });
+
+    if(resp.status===503 && type==='pdf'){
+      // LibreOffice 不可用，先下 docx 提示用户手动转
+      alert('服务器未安装 LibreOffice，无法自动转 PDF。\n请先下载 .docx，然后用 Microsoft Word 或 WPS 另存为 PDF。');
+      btn.disabled = false; btn.textContent = orig; return;
+    }
+    if(!resp.ok) throw new Error('服务器错误 ' + resp.status);
+
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const tpl  = templates.find(t=>t.key===selectedKey);
+    a.href     = url;
+    a.download = `${tpl?.label||selectedKey}_已填充.${type==='pdf'?'pdf':'docx'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('status-strip').textContent = '✅ 已下载！用 Word / WPS 打开后可继续编辑';
+  }catch(e){
+    document.getElementById('status-strip').textContent = '❌ ' + e.message;
+  }finally{
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+// ── AI 智能填充（异步任务，后台运行，可离开页面） ────────────────────
+let _aiTaskId = null;
+let _aiTimer  = null;
+
+async function downloadAI(){
+  if(!selectedKey){ alert('请先选择一个模板'); return; }
+  const btn   = document.getElementById('btn-ai-gen');
+  const strip = document.getElementById('status-strip');
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.textContent = '⏳ 提交任务中…';
+  strip.textContent = '正在提交 AI 生成任务…';
+  try{
+    const resp = await fetch(`${API}/generate/ai`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({templateKey: selectedKey, vars: getVars()})
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    _aiTaskId = data.taskId;
+    localStorage.setItem('baoyan_ai_task', JSON.stringify({id:_aiTaskId, key:selectedKey}));
+    strip.textContent = '✅ 任务已提交，AI 后台生成中（可离开此页面，回来后自动恢复）…';
+    btn.textContent = '⏳ AI 后台生成中…';
+    startAIPolling();
+  } catch(e){
+    alert('提交失败：' + e.message);
+    resetAIBtn();
+  }
+}
+
+function startAIPolling(){
+  if(_aiTimer) clearInterval(_aiTimer);
+  _aiTimer = setInterval(async ()=>{
+    if(!_aiTaskId){ clearInterval(_aiTimer); return; }
+    try{
+      const r = await fetch(`${API}/task/${_aiTaskId}/status`);
+      if(r.status===404){ clearInterval(_aiTimer); resetAIBtn(); return; }
+      if(!r.ok) return;
+      const d = await r.json();
+      const strip = document.getElementById('status-strip');
+      const btn   = document.getElementById('btn-ai-gen');
+      if(strip) strip.textContent = d.progress || '';
+      if(d.status==='done'){
+        clearInterval(_aiTimer);
+        localStorage.removeItem('baoyan_ai_task');
+        if(strip) strip.textContent = '✅ AI 填充完成！正在下载…';
+        // 自动下载
+        const saved = JSON.parse(localStorage.getItem('baoyan_ai_task')||'{}');
+        const tplKey = saved.key || selectedKey;
+        const tpl = templates.find(t=>t.key===tplKey);
+        const a = document.createElement('a');
+        a.href = `${API}/task/${_aiTaskId}/download`;
+        a.download = `${tpl?.label||tplKey}_AI填充.docx`;
+        a.click();
+        if(strip) strip.textContent = '✅ AI 填充完成！已下载，用 Word/WPS 打开编辑';
+        _aiTaskId = null;
+        resetAIBtn();
+      } else if(d.status==='error'){
+        clearInterval(_aiTimer);
+        localStorage.removeItem('baoyan_ai_task');
+        alert('AI 填充失败：'+(d.error||'未知错误'));
+        if(strip) strip.textContent = '❌ AI 填充失败';
+        _aiTaskId = null;
+        resetAIBtn();
+      }
+    } catch(e){ /* 网络波动，继续轮询 */ }
+  }, 3000);
+}
+
+function resetAIBtn(){
+  const btn = document.getElementById('btn-ai-gen');
+  if(btn){
+    btn.disabled  = !!selectedKey === false;
+    btn.style.opacity = selectedKey ? '1' : '0.5';
+    btn.textContent = '✨ AI 智能填充（AI 根据你的简历重写内容）';
+  }
+}
+
+// 页面加载时检查是否有进行中的任务
+(function resumeAITask(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('baoyan_ai_task')||'null');
+    if(!saved||!saved.id) return;
+    _aiTaskId = saved.id;
+    const btn   = document.getElementById('btn-ai-gen');
+    const strip = document.getElementById('status-strip');
+    if(btn){ btn.disabled=true; btn.style.opacity='0.7'; btn.textContent='⏳ AI 后台生成中（上次任务）…'; }
+    if(strip) strip.textContent = '检测到进行中的 AI 任务，恢复轮询中…';
+    startAIPolling();
+  } catch(e){}
+})();
+
+// ── 自定义模板上传 ────────────────────────────────────────────────
+async function uploadTemplate(file){
+  if(!file||!file.name.endsWith('.docx')){ alert('请选择 .docx 文件'); return; }
+  const status = document.getElementById('upload-status');
+  status.textContent = '上传中…';
+  const fd = new FormData(); fd.append('file', file);
+  try{
+    const r = await fetch(`${API}/templates/upload`,{method:'POST',body:fd});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    status.textContent = `✅ 已上传：${d.filename}`;
+    await loadTemplates();
+  }catch(e){ status.textContent = '❌ ' + e.message; }
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f) uploadTemplate(f);
+}
+
+async function deleteCustom(key){
+  if(!confirm('删除这个自定义模板？')) return;
+  const filename = key.replace('custom::','');
+  await fetch(`${API}/templates/custom/${encodeURIComponent(filename)}`,{method:'DELETE'});
+  if(selectedKey === key){ selectedKey = null; document.getElementById('btn-docx').disabled = true; }
+  await loadTemplates();
+}
+
+// 字段变化时更新预览
+document.querySelectorAll('.field-input').forEach(el=>
+  el.addEventListener('input', ()=>{
+    if(selectedKey){
+      const tpl = templates.find(t=>t.key===selectedKey);
+      if(tpl) updatePreview(tpl.label);
+    }
+  })
+);
+
+init();
+</script>
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

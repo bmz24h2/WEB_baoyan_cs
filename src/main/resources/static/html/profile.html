@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人信息 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+.profile-wrap {
+  width: 100%; max-width: 780px;
+  margin: 0 auto; padding: 28px 20px 64px;
+  box-sizing: border-box;
+}
+.profile-section {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 24px 28px;
+  margin-bottom: 16px;
+}
+.profile-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.btn-save-section {
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: .5px solid var(--border2);
+  background: var(--surface);
+  color: var(--text3);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .12s;
+}
+.btn-save-section:hover { background: var(--purple-bg); color: var(--purple-mid); border-color: var(--purple-mid); }
+.btn-save-section.saved { color: var(--green-txt, #3B6D11); border-color: var(--green-txt, #3B6D11); }
+.profile-section-title {
+  font-size: 13px; font-weight: 700; letter-spacing: .04em;
+  color: var(--text3); text-transform: uppercase;
+  margin-bottom: 18px; display: flex; align-items: center; gap: 6px;
+}
+.field-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  margin-bottom: 14px;
+}
+.field-row.full { grid-template-columns: 1fr; }
+.field-group { display: flex; flex-direction: column; gap: 5px; }
+.field-label {
+  font-size: 12px; font-weight: 600; color: var(--text2);
+}
+.field-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.field-input {
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 9px 12px; font-size: 13px;
+  background: var(--surface2); color: var(--text1);
+  outline: none; width: 100%; box-sizing: border-box;
+  transition: border-color .15s;
+}
+.field-input:focus { border-color: var(--purple-mid); }
+.field-textarea {
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 10px 12px; font-size: 13px;
+  background: var(--surface2); color: var(--text1);
+  outline: none; width: 100%; box-sizing: border-box;
+  resize: vertical; line-height: 1.6;
+  transition: border-color .15s;
+}
+.field-textarea:focus { border-color: var(--purple-mid); }
+.chip-group { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+.chip {
+  padding: 5px 13px; border-radius: 20px; font-size: 12px; cursor: pointer;
+  border: 1.5px solid var(--border2); background: var(--surface2); color: var(--text2);
+  user-select: none; transition: all .15s;
+}
+.chip.sel {
+  background: var(--purple-bg); border-color: var(--purple-mid);
+  color: var(--purple-txt);
+}
+/* ── 简历上传 ──────────────────────────────────── */
+.resume-upload-zone{border:2px dashed var(--border2);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;background:var(--surface2)}
+.resume-upload-zone:hover,.resume-upload-zone.drag-over{border-color:var(--purple-mid);background:var(--purple-bg)}
+.upload-icon{font-size:32px;margin-bottom:8px}
+/* 提取弹窗 */
+.extract-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
+.extract-overlay.show{display:flex}
+.extract-modal{background:var(--surface);border-radius:14px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:28px 30px;box-shadow:0 12px 48px rgba(0,0,0,.2)}
+.ex-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.ex-field{display:flex;flex-direction:column;gap:3px}
+.ex-field label{font-size:11px;font-weight:600;color:var(--text3)}
+.ex-input{border:1px solid var(--border2);border-radius:6px;padding:7px 10px;font-size:12px;background:var(--surface2);color:var(--text1);outline:none;width:100%;box-sizing:border-box}
+.ex-input:focus{border-color:var(--purple-mid)}
+.ex-full{grid-column:1/-1}
+.ex-chip-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.ex-chip{padding:3px 10px;border-radius:14px;font-size:11px;background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-mid)}
+/* 生成文档区 */
+.gen-sec{border-top:1px solid var(--border);padding-top:14px;margin-top:4px}
+.gen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px;margin:10px 0 14px}
+.gen-item{border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s}
+.gen-item.chk{border-color:var(--purple-mid);background:var(--purple-bg);color:var(--purple-txt)}
+.ex-btns{display:flex;gap:8px}
+.btn-apply{flex:1;background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-apply:hover{opacity:.88}
+.btn-cancel-m{background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:8px;padding:11px 18px;font-size:13px;cursor:pointer}
+.save-bar {
+  position: sticky; bottom: 0;
+  background: var(--surface); border-top: 0.5px solid var(--border);
+  padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+  z-index: 10;
+}
+.save-btn {
+  background: var(--purple-mid,#7c4dff); color: #fff;
+  border: none; border-radius: 8px; padding: 10px 28px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: opacity .15s;
+}
+.save-btn:hover { opacity: .88; }
+.save-msg { font-size: 12px; color: var(--green-txt,#1a7a3a); display: none; }
+.hint-banner {
+  background: var(--amber-bg,#fffbeb);
+  border: 1px solid var(--amber-mid,#f0c030);
+  border-radius: 8px; padding: 10px 16px;
+  font-size: 12px; color: var(--text2);
+  margin-bottom: 16px;
+}
+@media(max-width:600px){
+  .field-row { grid-template-columns: 1fr; }
+  .profile-section { padding: 16px 18px; }
+}
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+
+<nav class="topnav"></nav>
+
+<div class="profile-wrap">
+  <div class="page-header">
+    <h1>个人信息</h1>
+    <p>填写一次，导师匹配、邮件生成、看板等功能自动读取默认值</p>
+  </div>
+
+  <!-- 简历上传：一键提取个人信息 -->
+  <div class="profile-section" style="margin-bottom:16px">
+    <div class="profile-section-title">从简历一键提取信息</div>
+    <div class="resume-upload-zone" id="upload-zone"
+         onclick="document.getElementById('resume-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleResumeDrop(event)">
+      <div class="upload-icon">📄</div>
+      <p style="font-size:13px;color:var(--text2);margin:0 0 4px">
+        点击或拖拽上传你的简历文件
+      </p>
+      <small>支持 .docx（推荐）、.pdf、.txt · AI 自动识别并填写下方所有字段</small>
+    </div>
+    <input type="file" id="resume-input" accept=".docx,.pdf,.txt,.md"
+           style="display:none" onchange="handleResumeUpload(this.files[0])">
+    <div id="upload-progress" style="font-size:12px;color:var(--text3);margin-top:8px;min-height:18px"></div>
+  </div>
+
+  <div class="hint-banner">
+    信息已加密存储在本地服务器，登录同一账号后自动同步。
+  </div>
+
+  <!-- ① 基本信息 -->
+  <!-- 账号头像 & 安全 -->
+  <div class="profile-section" style="margin-bottom:16px">
+    <div class="profile-section-title">账号设置</div>
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <!-- 头像 -->
+      <div style="position:relative;flex-shrink:0">
+        <div id="profile-avatar"
+             onclick="document.getElementById('pa-input').click()"
+             style="width:68px;height:68px;border-radius:50%;background:var(--purple-bg);
+                    color:var(--purple-mid);font-size:26px;font-weight:800;cursor:pointer;
+                    display:flex;align-items:center;justify-content:center;
+                    overflow:hidden;position:relative;border:2px solid var(--border2)"
+             title="点击更换头像">
+          <span id="pa-letter"></span>
+          <img id="pa-img" src="" alt=""
+               style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0">
+        </div>
+        <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-radius:50%;
+                    background:var(--purple-mid);color:#fff;font-size:11px;pointer-events:none;
+                    display:flex;align-items:center;justify-content:center">✎</div>
+        <input type="file" id="pa-input" accept="image/*" style="display:none"
+               onchange="uploadAvatar(this.files[0])">
+      </div>
+      <!-- 用户信息 -->
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:15px;font-weight:700" id="pa-username">—</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">点击头像可更换，支持 JPG/PNG，限 200KB</div>
+        <div id="pa-avatar-msg" style="font-size:12px;min-height:16px;margin-top:4px"></div>
+      </div>
+    </div>
+
+    <!-- 修改密码（折叠） -->
+    <div style="margin-top:16px;border-top:.5px solid var(--border);padding-top:14px">
+      <button onclick="toggleChangePwd()" id="cp-toggle-btn"
+        style="background:none;border:none;font-size:13px;color:var(--text2);
+               cursor:pointer;padding:0;display:flex;align-items:center;gap:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        修改密码
+        <span id="cp-arrow" style="font-size:10px;transition:transform .2s">▶</span>
+      </button>
+      <div id="cp-wrap" style="display:none;margin-top:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex-wrap:wrap"
+             class="cp-grid">
+          <div class="field-group">
+            <label class="field-label">当前密码</label>
+            <div style="position:relative">
+              <input type="password" id="cp-current" class="field-input" placeholder="当前密码"
+                     style="padding-right:36px">
+              <button type="button" onclick="toggleEyeProfile('cp-current',this)"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                       background:none;border:none;cursor:pointer;color:var(--text3);padding:2px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">新密码（6位以上）</label>
+            <div style="position:relative">
+              <input type="password" id="cp-new" class="field-input" placeholder="新密码"
+                     style="padding-right:36px">
+              <button type="button" onclick="toggleEyeProfile('cp-new',this)"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                       background:none;border:none;cursor:pointer;color:var(--text3);padding:2px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">确认新密码</label>
+            <input type="password" id="cp-confirm" class="field-input" placeholder="再输一次">
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+          <button onclick="doChangePwd()"
+            style="background:var(--purple-mid,#7c4dff);color:#fff;border:none;
+                   border-radius:7px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer">
+            确认修改
+          </button>
+          <span id="cp-msg" style="font-size:12px"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <div class="profile-section-title">基本信息</div>
+      <button class="btn-save-section" onclick="saveSection('basic', ['p-name','p-email','p-school','p-major','p-grade','p-gpa','p-rank','p-link'], this)">仅保存此项</button>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label">姓名</label>
+        <input class="field-input" id="p-name" placeholder="张三">
+      </div>
+      <div class="field-group">
+        <label class="field-label">邮箱</label>
+        <input class="field-input" id="p-email" type="email" placeholder="zhangsan@stu.edu.cn">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label">本科院校</label>
+        <input class="field-input" id="p-school" placeholder="华中科技大学">
+      </div>
+      <div class="field-group">
+        <label class="field-label">专业</label>
+        <input class="field-input" id="p-major" placeholder="计算机科学与技术">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label">年级</label>
+        <select class="field-input" id="p-grade">
+          <option value="">请选择</option>
+          <option>大二</option><option>大三</option><option>大四</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">GPA（4.0制）</label>
+        <input class="field-input" id="p-gpa" type="text" placeholder="3.91/4.00 或 3.7">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label">专业排名百分比（%）</label>
+        <input class="field-input" id="p-rank" type="text" placeholder="10（前10%）或 2/139">
+        <span class="field-sub">填 10 表示前10%，填 5 表示前5%</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">成绩单/个人主页链接（可选）</label>
+        <input class="field-input" id="p-link" placeholder="https://...">
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 科研经历 -->
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <div class="profile-section-title">🔬 科研经历</div>
+      <button class="btn-save-section" onclick="saveSection('exp', ['p-exp'], this)">仅保存此项</button>
+    </div>
+    <div class="field-group">
+      <label class="field-label">科研经历描述</label>
+      <textarea class="field-textarea" id="p-exp" rows="5"
+        placeholder="自由描述你做过什么项目、发表/在投论文、熟悉的技术栈等，供导师匹配和邮件生成使用。
+例如：参与导师课题，完成基于ResNet的目标检测改进工作，在CVPR 2025 workshop投稿；熟悉PyTorch、Transformers库..."></textarea>
+      <span class="field-sub">导师匹配页会用此内容推断你的研究方向；邮件生成时替换 {exp}</span>
+    </div>
+  </div>
+
+  <!-- ③ 获奖荣誉 -->
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <div class="profile-section-title">获奖荣誉</div>
+      <button class="btn-save-section" onclick="saveSection('awards', ['p-awards'], this)">仅保存此项</button>
+    </div>
+    <div class="field-group">
+      <label class="field-label">奖项与荣誉</label>
+      <textarea class="field-textarea" id="p-awards" rows="4"
+        placeholder="每行一条，例如：
+校级二等奖学金（2023-2024、2024-2025 学年）
+院级三好学生（2024、2025）
+第十三届全国大学生数字媒体科技作品及创意竞赛国家级三等奖"></textarea>
+      <span class="field-sub">AI 填充简历时用于生成「技能证书」栏目</span>
+    </div>
+  </div>
+
+  <!-- ④ 实践经历 -->
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <div class="profile-section-title">实践与志愿经历</div>
+      <button class="btn-save-section" onclick="saveSection('practice', ['p-practice'], this)">仅保存此项</button>
+    </div>
+    <div class="field-group">
+      <label class="field-label">社会实践 / 志愿服务 / 学生工作</label>
+      <textarea class="field-textarea" id="p-practice" rows="3"
+        placeholder="例如：
+2025年无锡马拉松志愿者，获优秀志愿者称号
+加入「绿动联盟，益起行动」社会实践团，获院级优秀团队"></textarea>
+      <span class="field-sub">可用于个人陈述、推荐信等文书补充内容</span>
+    </div>
+  </div>
+
+  <!-- ⑤ 保研意向 -->
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <div class="profile-section-title">保研意向</div>
+      <button class="btn-save-section" onclick="saveSection('intention', null, this)">仅保存此项</button>
+    </div>
+    <div class="field-group" style="margin-bottom:16px">
+      <label class="field-label">意向研究方向
+        <span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:4px">
+          导师匹配页打开时自动选中
+        </span>
+      </label>
+      <div class="chip-group" id="p-dir-chips">
+        <span class="chip" data-v="大语言模型"   onclick="toggleP(this)">大语言模型</span>
+        <span class="chip" data-v="具身智能"     onclick="toggleP(this)">具身智能</span>
+        <span class="chip" data-v="多模态"       onclick="toggleP(this)">多模态</span>
+        <span class="chip" data-v="计算机视觉"   onclick="toggleP(this)">计算机视觉</span>
+        <span class="chip" data-v="自然语言处理" onclick="toggleP(this)">自然语言处理</span>
+        <span class="chip" data-v="机器学习"     onclick="toggleP(this)">机器学习</span>
+        <span class="chip" data-v="强化学习"     onclick="toggleP(this)">强化学习</span>
+        <span class="chip" data-v="自动驾驶"     onclick="toggleP(this)">自动驾驶</span>
+        <span class="chip" data-v="图神经网络"   onclick="toggleP(this)">图神经网络</span>
+        <span class="chip" data-v="网络安全"     onclick="toggleP(this)">网络安全</span>
+        <span class="chip" data-v="系统/体系结构" onclick="toggleP(this)">系统/体系结构</span>
+        <span class="chip" data-v="算法理论"     onclick="toggleP(this)">算法理论</span>
+        <span class="chip" data-v="数据库/数据挖掘" onclick="toggleP(this)">数据库/数据挖掘</span>
+        <span class="chip" data-v="软件工程"     onclick="toggleP(this)">软件工程</span>
+        <span class="chip" data-v="高性能计算"   onclick="toggleP(this)">高性能计算</span>
+        <span class="chip" data-v="嵌入式/物联网" onclick="toggleP(this)">嵌入式/物联网</span>
+        <span class="chip" data-v="人机交互"     onclick="toggleP(this)">人机交互</span>
+        <span class="chip" data-v="量子计算"     onclick="toggleP(this)">量子计算</span>
+        <span class="chip" data-v="网络与通信"   onclick="toggleP(this)">网络与通信</span>
+      </div>
+    </div>
+
+    <div class="field-group" style="margin-bottom:16px">
+      <label class="field-label">意向院校梯队
+        <span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:4px">
+          导师匹配页打开时自动选中
+        </span>
+      </label>
+      <div class="chip-group" id="p-tier-chips">
+        <span class="chip" data-v=""          onclick="togglePTier(this)">不限（含211）</span>
+        <span style="font-size:10px;color:var(--text3);width:100%;margin:2px 0 0">— 985 / C9 —</span>
+        <span class="chip" data-v="顶尖C9"    onclick="togglePTier(this)">顶尖 C9</span>
+        <span class="chip" data-v="上游985"   onclick="togglePTier(this)">上游 985</span>
+        <span class="chip" data-v="中游985"   onclick="togglePTier(this)">中游 985</span>
+        <span class="chip" data-v="中下游985" onclick="togglePTier(this)">中下游 985</span>
+        <span class="chip" data-v="末流985"   onclick="togglePTier(this)">末流 985</span>
+        <span class="chip" data-v="中科院"    onclick="togglePTier(this)">中科院</span>
+        <span style="font-size:10px;color:var(--text3);width:100%;margin:2px 0 0">— 211 —</span>
+        <span class="chip" data-v="顶级211"   onclick="togglePTier(this)">顶级 211</span>
+        <span class="chip" data-v="中上211"   onclick="togglePTier(this)">中上 211</span>
+        <span class="chip" data-v="中流211"   onclick="togglePTier(this)">中流 211</span>
+        <span class="chip" data-v="中下211"   onclick="togglePTier(this)">中下 211</span>
+        <span class="chip" data-v="末流211"   onclick="togglePTier(this)">末流 211</span>
+      </div>
+    </div>
+
+    <div class="field-row full">
+      <div class="field-group">
+        <label class="field-label">目标院校（可选，自由填写）</label>
+        <input class="field-input" id="p-target-schools"
+          placeholder="清华大学、浙江大学、上海交通大学…">
+        <span class="field-sub">此处仅供记录，不影响匹配算法</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.profile-wrap -->
+
+<!-- 悬浮保存栏 -->
+<div class="save-bar">
+  <button class="save-btn" onclick="saveProfile()">保存个人信息</button>
+  <span class="save-msg" id="save-msg">✅ 已保存！其他页面将自动使用这些默认值</span>
+  <span style="flex:1"></span>
+
+  <!-- 导出 -->
+  <button onclick="exportProfile()" title="导出为 JSON 文件，可在其他设备/浏览器导入"
+    style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:7px 14px;font-size:12px;color:var(--text2);cursor:pointer">
+    导出
+  </button>
+
+  <!-- 导入 -->
+  <button onclick="document.getElementById('import-input').click()" title="从之前导出的 JSON 文件导入"
+    style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:7px 14px;font-size:12px;color:var(--text2);cursor:pointer">
+    导入
+  </button>
+  <input type="file" id="import-input" accept=".json" style="display:none"
+         onchange="importProfile(this.files[0])">
+
+  <!-- 一键清除 -->
+  <button onclick="clearAllPersonalData()" title="清除所有个人信息（发给别人前使用）"
+    style="background:none;border:1px solid #d44;border-radius:7px;padding:7px 14px;font-size:12px;color:#d44;cursor:pointer">
+    一键清除
+  </button>
+</div>
+
+<script src="/js/frontend.js"></script>
+<script>
+const PROFILE_KEY = 'baoyan_profile';
+
+function toggleP(el)  { el.classList.toggle('sel'); }
+function togglePTier(el){
+  if(el.dataset.v === '') {
+    // 选"不限"时清除其他选中
+    document.querySelectorAll('#p-tier-chips .chip').forEach(c => c.classList.remove('sel'));
+    el.classList.add('sel');
+  } else {
+    document.querySelector('#p-tier-chips .chip[data-v=""]')?.classList.remove('sel');
+    el.classList.toggle('sel');
+  }
+}
+
+function getProfileData(){
+  const dirs  = [...document.querySelectorAll('#p-dir-chips .chip.sel')].map(c=>c.dataset.v);
+  const tiers = [...document.querySelectorAll('#p-tier-chips .chip.sel')].map(c=>c.dataset.v);
+  return {
+    name:          document.getElementById('p-name').value.trim(),
+    email:         document.getElementById('p-email').value.trim(),
+    school:        document.getElementById('p-school').value.trim(),
+    major:         document.getElementById('p-major').value.trim(),
+    grade:         document.getElementById('p-grade').value,
+    gpa:           document.getElementById('p-gpa').value.trim(),
+    rankPct:       document.getElementById('p-rank').value.trim(),
+    link:          document.getElementById('p-link').value.trim(),
+    experience:    document.getElementById('p-exp').value.trim(),
+    awards:        document.getElementById('p-awards').value.trim(),
+    practice:      document.getElementById('p-practice').value.trim(),
+    targetDirs:    dirs,
+    targetTiers:   tiers,
+    targetSchools: document.getElementById('p-target-schools').value.trim(),
+  };
+}
+
+// 仅保存指定字段到 localStorage（不影响其他字段）
+async function saveSection(sectionId, fieldIds, btn) {
+  // 读现有数据
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}'); } catch(_) {}
+
+  if (fieldIds === null) {
+    // 保研意向：芯片字段特殊处理
+    const dirs  = [...document.querySelectorAll('#p-dir-chips  .chip.sel')].map(c => c.dataset.v);
+    const tiers = [...document.querySelectorAll('#p-tier-chips .chip.sel')].map(c => c.dataset.v);
+    const targetSchools = document.getElementById('p-target-schools')?.value.trim() || '';
+    Object.assign(data, { targetDirs: dirs, targetTiers: tiers, targetSchools });
+  } else {
+    // 普通文本字段
+    fieldIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // 把 DOM id 映射到数据字段名
+      const keyMap = {
+        'p-name':'name','p-email':'email','p-school':'school','p-major':'major',
+        'p-grade':'grade','p-gpa':'gpa','p-rank':'rankPct','p-link':'link',
+        'p-exp':'experience','p-awards':'awards','p-practice':'practice',
+        'p-target-schools':'targetSchools',
+      };
+      const key = keyMap[id] || id.replace('p-','');
+      data[key] = el.value.trim();
+    });
+  }
+
+  // 写回 localStorage
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+
+  // 同步到服务器
+  try {
+    await fetch(PAPI + '/user/profile', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data),
+    });
+  } catch(_) {}
+
+  // 按钮反馈
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已保存';
+    btn.classList.add('saved');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('saved'); }, 2000);
+  }
+}
+
+async function saveProfile(){
+  const data = getProfileData();
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+  const msg = document.getElementById('save-msg');
+  msg.style.display = 'inline';
+  // 同步到服务器（登录状态下）
+  try {
+    const r = await fetch(PAPI + '/user/profile', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (r.ok) {
+      msg.textContent = '✅ 已保存并同步到账号！';
+    } else if (r.status === 401) {
+      msg.textContent = '✅ 已保存到本地（未登录，仅本设备可用）';
+    } else {
+      msg.textContent = '✅ 已保存到本地';
+    }
+  } catch(_) {
+    msg.textContent = '✅ 已保存到本地（后端未连接）';
+  }
+  setTimeout(()=>{ msg.style.display='none'; msg.textContent='✅ 已保存！其他页面将自动使用这些默认值'; }, 3500);
+}
+
+function clearProfile(){
+  if(!confirm('确认清空所有个人信息？')) return;
+  localStorage.removeItem(PROFILE_KEY);
+  location.reload();
+}
+
+// ── 导出：下载为 JSON 文件 ──────────────────────────────────────
+function exportProfile(){
+  const raw = localStorage.getItem(PROFILE_KEY);
+  if (!raw) { alert('没有已保存的个人信息，请先填写并保存。'); return; }
+  const blob = new Blob([raw], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '保研个人信息_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── 导入：从 JSON 文件恢复 ─────────────────────────────────────
+function importProfile(file){
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.name && !data.school) throw new Error('格式不符');
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+      alert('✅ 导入成功！页面将刷新以加载数据。');
+      location.reload();
+    } catch(err) {
+      alert('❌ 导入失败：文件格式不正确（需为之前导出的 JSON 文件）');
+    }
+  };
+  reader.readAsText(file);
+  // 清空 input，让同名文件也能重复触发
+  document.getElementById('import-input').value = '';
+}
+
+// ── 一键清除所有个人数据 ─────────────────────────────────────
+async function clearAllPersonalData(){
+  const confirmed = confirm(
+    '⚠️ 一键清除将删除：\n' +
+    '• 本页面填写的所有个人信息\n' +
+    '• 模拟面试练习进度\n' +
+    '• 上传的自定义模板文件（服务器端）\n' +
+    '• 导师匹配的会话历史\n\n' +
+    '爬取的学校/老师数据不受影响。\n\n' +
+    '确认清除？（发给别人前建议执行此操作）'
+  );
+  if (!confirmed) return;
+
+  // 清除 localStorage
+  const keysToRemove = [
+    'baoyan_profile',
+    'baoyan_interview_done',
+    'baoyan_teacher_session',
+    'baoyan_gen_docs',
+  ];
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+  sessionStorage.clear();
+
+  // 删除服务器端自定义模板
+  try {
+    const r = await fetch('http://localhost:8080/api/profile/clear-personal-data', {
+      method: 'DELETE'
+    });
+    const d = await r.json().catch(()=>({}));
+    const count = d.deletedTemplates || 0;
+    alert(`✅ 清除完成！\n• 已清空本地个人信息\n• 已删除服务器端自定义模板 ${count} 个\n\n页面将刷新。`);
+  } catch(e) {
+    alert('✅ 本地个人信息已清空（服务器端模板清除失败，可手动删除 output/custom-templates/ 文件夹内容）');
+  }
+  location.reload();
+}
+
+async function loadProfileFromServer() {
+  try {
+    const r = await fetch(PAPI + '/user/profile', { credentials: 'same-origin' });
+    if (!r.ok) return false;
+    const d = await r.json();
+    if (!d.profile) return false;
+    const data = typeof d.profile === 'string' ? JSON.parse(d.profile) : d.profile;
+    if (!data || !data.name) return false;
+    // 服务器数据写入 localStorage（以服务器为准）
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+    return true;
+  } catch(_) { return false; }
+}
+
+function loadProfile(){
+  const raw = localStorage.getItem(PROFILE_KEY);
+  if(!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    const set = (id, v) => { if(v !== undefined && v !== '') document.getElementById(id).value = v; };
+    set('p-name',   d.name);
+    set('p-email',  d.email);
+    set('p-school', d.school);
+    set('p-major',  d.major);
+    set('p-grade',  d.grade);
+    set('p-gpa',    d.gpa);
+    set('p-rank',   d.rankPct);
+    set('p-link',   d.link);
+    set('p-exp',    d.experience);
+    set('p-awards', d.awards);
+    set('p-practice', d.practice);
+    set('p-target-schools', d.targetSchools);
+    // 还原方向芯片
+    (d.targetDirs||[]).forEach(v => {
+      document.querySelector(`#p-dir-chips .chip[data-v="${v}"]`)?.classList.add('sel');
+    });
+    // 还原梯队芯片
+    if(d.targetTiers?.length){
+      (d.targetTiers).forEach(v => {
+        document.querySelector(`#p-tier-chips .chip[data-v="${v}"]`)?.classList.add('sel');
+      });
+    } else {
+      document.querySelector('#p-tier-chips .chip[data-v=""]')?.classList.add('sel');
+    }
+  } catch(e){ console.warn('profile load error', e); }
+}
+
+// ── 账号设置（头像 + 改密码）────────────────────────────────────
+const PAPI = 'http://localhost:8080/api';
+
+// 初始化：从服务端读取用户信息和头像
+(async function initAccount(){
+  try{
+    const r = await fetch(PAPI + '/auth/whoami', {credentials:'same-origin'});
+    if(!r.ok) return;
+    const d = await r.json();
+    document.getElementById('pa-username').textContent = d.username || '—';
+    if(d.avatar && d.avatar.startsWith('data:image/')){
+      document.getElementById('pa-img').src = d.avatar;
+      document.getElementById('pa-img').style.display = 'block';
+      document.getElementById('pa-letter').style.display = 'none';
+    } else {
+      document.getElementById('pa-letter').textContent =
+        (d.username || '?').charAt(0).toUpperCase();
+    }
+  }catch(_){}
+})();
+
+// 头像上传
+async function uploadAvatar(file){
+  if(!file) return;
+  if(file.size > 10 * 1024 * 1024){ alert('图片不能超过 10MB'); return; }
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 120;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = async () => {
+    const s = Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, 120, 120);
+    const b64 = canvas.toDataURL('image/jpeg', .85);
+    // 压缩后通常只有 5-20KB，无需再检查大小
+    try{
+      const r = await fetch(PAPI + '/user/avatar', {
+        method:'PUT', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({avatar: b64})
+      });
+      if(r.ok){
+        document.getElementById('pa-img').src = b64;
+        document.getElementById('pa-img').style.display = 'block';
+        document.getElementById('pa-letter').style.display = 'none';
+        document.getElementById('pa-avatar-msg').textContent = '✅ 头像已更新';
+        document.getElementById('pa-avatar-msg').style.color = 'var(--green-txt,#1a7a3a)';
+        setTimeout(()=>document.getElementById('pa-avatar-msg').textContent='', 2500);
+      } else {
+        document.getElementById('pa-avatar-msg').textContent = '❌ 上传失败';
+      }
+    }catch(_){ document.getElementById('pa-avatar-msg').textContent = '❌ 网络错误'; }
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+  document.getElementById('pa-input').value = '';
+}
+
+// 修改密码折叠
+let cpOpen = false;
+function toggleChangePwd(){
+  cpOpen = !cpOpen;
+  document.getElementById('cp-wrap').style.display = cpOpen ? 'block' : 'none';
+  document.getElementById('cp-arrow').style.transform = cpOpen ? 'rotate(90deg)' : '';
+}
+
+function toggleEyeProfile(id, btn){
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'text' ? 'password' : 'text';
+}
+
+async function doChangePwd(){
+  const cur = document.getElementById('cp-current').value;
+  const nw  = document.getElementById('cp-new').value;
+  const cf  = document.getElementById('cp-confirm').value;
+  const msg = document.getElementById('cp-msg');
+  if(!cur||!nw){ msg.textContent='请填写完整'; msg.style.color='#d44'; return; }
+  if(nw !== cf){ msg.textContent='两次新密码不一致'; msg.style.color='#d44'; return; }
+  if(nw.length < 6){ msg.textContent='新密码至少 6 位'; msg.style.color='#d44'; return; }
+  try{
+    const r = await fetch(PAPI + '/auth/password', {
+      method:'PUT', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({currentPassword:cur, newPassword:nw})
+    });
+    const d = await r.json();
+    if(!r.ok){ msg.textContent = d.error||'修改失败'; msg.style.color='#d44'; return; }
+    msg.textContent = '✅ 密码修改成功'; msg.style.color = 'var(--green-txt,#1a7a3a)';
+    document.getElementById('cp-current').value = '';
+    document.getElementById('cp-new').value = '';
+    document.getElementById('cp-confirm').value = '';
+  }catch(_){ msg.textContent='网络错误'; msg.style.color='#d44'; }
+}
+
+// 优先从服务器同步，再填表单；服务器失败时 fallback 到 localStorage
+(async function(){
+  // 先用 localStorage 立即填表（避免网络慢时白屏等待）
+  loadProfile();
+  // 再从服务器拉最新数据覆盖（如果有更新）
+  const synced = await loadProfileFromServer();
+  if (synced) loadProfile(); // 服务器有数据则重新填一次
+})();
+</script>
+<!-- 提取结果弹窗 -->
+<div class="extract-overlay" id="extract-overlay">
+  <div class="extract-modal">
+    <h3>简历信息提取完成</h3>
+    <p id="extract-subtitle">请确认以下信息是否正确，可直接编辑后点「填入表单」</p>
+
+    <div class="ex-grid">
+      <div class="ex-field"><label>姓名</label><input class="ex-input" id="ex-name"></div>
+      <div class="ex-field"><label>邮箱</label><input class="ex-input" id="ex-email"></div>
+      <div class="ex-field"><label>本科院校</label><input class="ex-input" id="ex-school"></div>
+      <div class="ex-field"><label>专业</label><input class="ex-input" id="ex-major"></div>
+      <div class="ex-field"><label>GPA</label><input class="ex-input" id="ex-gpa"></div>
+      <div class="ex-field"><label>排名前 X%</label><input class="ex-input" id="ex-rank"></div>
+      <div class="ex-field full"><label>科研经历</label>
+        <textarea class="ex-input" id="ex-exp" rows="4" style="resize:vertical"></textarea>
+      </div>
+      <div class="ex-field full"><label>获奖荣誉</label>
+        <textarea class="ex-input" id="ex-awards" rows="3" style="resize:vertical"
+          placeholder="每行一条奖项/荣誉"></textarea>
+      </div>
+      <div class="ex-field full"><label>实践与志愿经历</label>
+        <textarea class="ex-input" id="ex-practice" rows="2" style="resize:vertical"
+          placeholder="社会实践、志愿服务、学生工作等"></textarea>
+      </div>
+      <div class="ex-field full"><label>推断出的研究方向</label>
+        <div class="ex-chip-wrap" id="ex-dirs"></div>
+      </div>
+    </div>
+
+    <!-- 询问是否生成其他文档 -->
+    <div class="gen-sec">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">
+        📄 顺便用这些信息生成以下文档？
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+        勾选后点「填入并生成」，会跳转到文档生成页自动填好
+      </div>
+      <div class="gen-grid" id="gen-docs-grid">
+        <div class="gen-item" data-key="intro"          onclick="toggleGenDoc(this)">📝 自我介绍</div>
+        <div class="gen-item" data-key="statement"      onclick="toggleGenDoc(this)">📋 个人陈述</div>
+        <div class="gen-item" data-key="email"          onclick="toggleGenDoc(this)">✉️ 套磁邮件</div>
+        <div class="gen-item" data-key="recommendation" onclick="toggleGenDoc(this)">🏆 推荐信</div>
+        <div class="gen-item" data-key="resume-c"       onclick="toggleGenDoc(this)">👔 简历模板C</div>
+      </div>
+    </div>
+
+    <div class="ex-btns">
+      <button class="btn-apply" onclick="applyExtracted()">填入表单</button>
+      <button class="btn-apply" id="btn-apply-gen" onclick="applyAndGenerate()"
+        style="background:var(--blue-mid,#3a7bd5)">
+        填入并生成所选文档
+      </button>
+      <button class="btn-cancel-m" onclick="closeExtractModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api';
+let extractedData = {};
+
+// ── 简历上传处理 ────────────────────────────────────────────────
+function handleResumeDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleResumeUpload(f);
+}
+
+async function handleResumeUpload(file) {
+  if (!file) return;
+  const allowed = ['.docx','.pdf','.txt','.md'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (!allowed.includes(ext)) {
+    setProgress('❌ 不支持的格式，请上传 .docx / .pdf / .txt');
+    return;
+  }
+
+  setProgress(`正在解析「${file.name}」，AI 识别中…`);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const resp = await fetch(`${API}/profile/extract-from-resume`, {
+      method: 'POST', body: fd
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({error:'服务器错误 '+resp.status}));
+      setProgress('❌ ' + (err.error || '解析失败'));
+      return;
+    }
+
+    extractedData = await resp.json();
+    if (extractedData.error) {
+      setProgress('❌ ' + extractedData.error);
+      return;
+    }
+
+    setProgress(`✅ 解析成功！来自：${file.name}`);
+    showExtractModal(extractedData);
+
+  } catch (e) {
+    setProgress('❌ 无法连接后端，请确认 mvn spring-boot:run 已启动');
+  }
+}
+
+function setProgress(msg) {
+  document.getElementById('upload-progress').textContent = msg;
+}
+
+// ── 弹窗逻辑 ────────────────────────────────────────────────────
+function showExtractModal(data) {
+  document.getElementById('ex-name').value   = data.name   || '';
+  document.getElementById('ex-email').value  = data.email  || '';
+  document.getElementById('ex-school').value = data.school || '';
+  document.getElementById('ex-major').value  = data.major  || '';
+  document.getElementById('ex-gpa').value    = data.gpa    || '';
+  document.getElementById('ex-rank').value   = data.rankPct|| '';
+  document.getElementById('ex-exp').value    = data.experience || '';
+  document.getElementById('ex-awards').value = Array.isArray(data.awards) ? data.awards.join('\n') : (data.awards||'');
+  const exPractice = document.getElementById('ex-practice');
+  if(exPractice) exPractice.value = Array.isArray(data.practice) ? data.practice.join('\n') : (data.practice||'');
+
+  // 研究方向芯片
+  const dirsWrap = document.getElementById('ex-dirs');
+  dirsWrap.innerHTML = (data.targetDirs || [])
+    .map(d => `<span class="ex-chip">${d}</span>`).join('');
+
+  // 更新副标题
+  document.getElementById('extract-subtitle').textContent =
+    `从「${data._filename || '简历'}」中提取到以下信息，可直接编辑后确认`;
+
+  document.getElementById('extract-overlay').classList.add('show');
+  document.getElementById('upload-zone').classList.remove('drag-over');
+}
+
+function closeExtractModal() {
+  document.getElementById('extract-overlay').classList.remove('show');
+}
+// 点遮罩关闭
+document.getElementById('extract-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeExtractModal();
+});
+
+function toggleGenDoc(el) {
+  el.classList.toggle('chk');
+}
+
+// ── 填入表单 ────────────────────────────────────────────────────
+function getModalValues() {
+  return {
+    name:       document.getElementById('ex-name').value.trim(),
+    email:      document.getElementById('ex-email').value.trim(),
+    school:     document.getElementById('ex-school').value.trim(),
+    major:      document.getElementById('ex-major').value.trim(),
+    gpa:        document.getElementById('ex-gpa').value.trim(),
+    rankPct:    document.getElementById('ex-rank').value.trim(),
+    experience: document.getElementById('ex-exp').value.trim(),
+    awards:     document.getElementById('ex-awards')?.value.trim() || '',
+    practice:   document.getElementById('ex-practice')?.value.trim() || '',
+    targetDirs: extractedData.targetDirs || [],
+  };
+}
+
+function applyExtracted() {
+  const v = getModalValues();
+  // 写入页面表单
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  set('p-name',   v.name);
+  set('p-email',  v.email);
+  set('p-school', v.school);
+  set('p-major',  v.major);
+  set('p-gpa',    v.gpa);
+  set('p-rank',   v.rankPct);
+  set('p-exp',    v.experience);
+  set('p-awards', v.awards);
+  set('p-practice', v.practice);
+
+  // 选中研究方向芯片
+  document.querySelectorAll('#p-dir-chips .chip').forEach(c => c.classList.remove('sel'));
+  (v.targetDirs || []).forEach(dir => {
+    document.querySelector(`#p-dir-chips .chip[data-v="${dir}"]`)?.classList.add('sel');
+  });
+
+  // 自动保存
+  saveProfile();
+  closeExtractModal();
+  setProgress('✅ 已从简历提取并填入所有字段，信息已自动保存！');
+}
+
+function applyAndGenerate() {
+  // 先填入表单并保存
+  applyExtracted();
+
+  // 获取选中的文档
+  const checked = [...document.querySelectorAll('.gen-item.chk')].map(el => el.dataset.key);
+  if (checked.length === 0) {
+    setProgress('✅ 已填入并保存！（未勾选任何文档）');
+    return;
+  }
+
+  // 保存已选文档 key，跳转到文档生成页
+  sessionStorage.setItem('baoyan_gen_docs', JSON.stringify(checked));
+  window.location.href = '/html/documents.html?autoSelect=' + checked[0];
+}
+</script>
+
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+<!-- 头像裁剪 Modal -->
+<div id="crop-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);
+     z-index:2000;align-items:center;justify-content:center;overflow-y:auto;padding:20px 0">
+  <div style="background:var(--surface);border-radius:14px;padding:24px;
+              width:fit-content;min-width:320px;max-width:90vw;
+              box-shadow:0 8px 40px rgba(0,0,0,.3)">
+    <div style="font-size:14px;font-weight:700;margin-bottom:2px">调整头像</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">拖动圆圈选区 · 滚轮缩放</div>
+    <!-- 画布尺寸由 JS 动态设置 -->
+    <canvas id="crop-canvas"
+            style="display:block;border-radius:8px;cursor:move;touch-action:none;
+                   background:#111;max-width:80vw;max-height:70vh"></canvas>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <span style="font-size:10px;color:var(--text3)">缩小</span>
+      <input type="range" id="crop-zoom" min="1" max="4" step="0.02" value="1"
+             style="flex:1" oninput="cropSetZoom(parseFloat(this.value))">
+      <span style="font-size:10px;color:var(--text3)">放大</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="cropConfirm()"
+        style="flex:1;background:var(--purple-mid,#7c4dff);color:#fff;border:none;
+               border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">
+        使用此头像
+      </button>
+      <button onclick="closeCropModal()"
+        style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;
+               padding:10px 16px;font-size:13px;cursor:pointer;color:var(--text2)">
+        取消
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var _ci = null, _cz = 1, _rr = 0, _rx = 0, _ry = 0;
+  var _drag = false, _ox = 0, _oy = 0, _tp = null;
+  var SHORT = 352;   // 短边固定尺寸（px）
+
+  function _cv()   { return document.getElementById('crop-canvas'); }
+  function _base() {
+    /* 让图片短边 = SHORT，长边按比例延伸，无黑边 */
+    return SHORT / Math.min(_ci.naturalWidth, _ci.naturalHeight);
+  }
+  function _ir() {
+    var sc = _base() * _cz;
+    var w  = _ci.naturalWidth  * sc;
+    var h  = _ci.naturalHeight * sc;
+    var cv = _cv();
+    return { x:(cv.width-w)/2, y:(cv.height-h)/2, w:w, h:h, sc:sc };
+  }
+  function _clamp() {
+    if (!_ci) return;
+    var r = _ir();
+    _rx = Math.max(r.x+_rr, Math.min(r.x+r.w-_rr, _rx));
+    _ry = Math.max(r.y+_rr, Math.min(r.y+r.h-_rr, _ry));
+  }
+  function _draw() {
+    if (!_ci) return;
+    var cv  = _cv(); if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var cw  = cv.width, ch = cv.height;
+    var r   = _ir();
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(_ci, r.x, r.y, r.w, r.h);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,.50)';
+    ctx.beginPath();
+    ctx.rect(0, 0, cw, ch);
+    ctx.arc(_rx, _ry, _rr, 0, Math.PI*2, true);
+    ctx.fill('evenodd');
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(_rx, _ry, _rr, 0, Math.PI*2); ctx.stroke();
+  }
+
+  window.cropSetZoom = function (z) {
+    if (!_ci) return; _cz = z; _clamp(); _draw();
+  };
+  window.openCropModal = function (file) {
+    var fr = new FileReader();
+    fr.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        _ci = img; _cz = 1;
+        /* 画布尺寸：短边 = SHORT，长边按比例，最大 600px */
+        var sc = SHORT / Math.min(img.naturalWidth, img.naturalHeight);
+        var cw = Math.min(Math.round(img.naturalWidth  * sc), 600);
+        var ch = Math.min(Math.round(img.naturalHeight * sc), 600);
+        var cv = _cv();
+        cv.width  = cw; cv.height = ch;
+        cv.style.width  = cw + 'px';
+        cv.style.height = ch + 'px';
+        /* 圆：半径 = 短边 / 2，始终能看到完整一圈 */
+        _rr = SHORT / 2;
+        _rx = cw / 2; _ry = ch / 2;
+        document.getElementById('crop-zoom').value = 1;
+        _draw();
+        document.getElementById('crop-overlay').style.display = 'flex';
+      };
+      img.src = e.target.result;
+    };
+    fr.readAsDataURL(file);
+  };
+  window.closeCropModal = function () {
+    document.getElementById('crop-overlay').style.display = 'none';
+    document.getElementById('pa-input').value = '';
+    _ci = null;
+  };
+  window.cropConfirm = async function () {
+    if (!_ci) return;
+    var r   = _ir();
+    var out = document.createElement('canvas');
+    out.width = out.height = 160;
+    var ctx = out.getContext('2d');
+    ctx.drawImage(_ci,
+      (_rx-_rr-r.x)/r.sc, (_ry-_rr-r.y)/r.sc,
+      _rr*2/r.sc, _rr*2/r.sc,
+      0, 0, 160, 160);
+    var b64 = out.toDataURL('image/jpeg', .90);
+    closeCropModal();
+    try {
+      var resp = await fetch(PAPI + '/user/avatar', {
+        method:'PUT', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({avatar: b64})
+      });
+      var el = document.getElementById('pa-avatar-msg');
+      if (resp.ok) {
+        document.getElementById('pa-img').src = b64;
+        document.getElementById('pa-img').style.display = 'block';
+        document.getElementById('pa-letter').style.display = 'none';
+        el.textContent = '✅ 头像已更新';
+        el.style.color = 'var(--green-txt,#1a7a3a)';
+        setTimeout(function(){ el.textContent=''; }, 2500);
+      } else { el.textContent = '❌ 上传失败'; }
+    } catch(_) { document.getElementById('pa-avatar-msg').textContent = '❌ 网络错误'; }
+  };
+  window.uploadAvatar = function (file) {
+    if (!file) return;
+    if (file.size > 10*1024*1024) { alert('图片不能超过 10MB'); return; }
+    openCropModal(file);
+  };
+
+  /* 事件绑定 */
+  document.addEventListener('DOMContentLoaded', function(){
+    var cv = _cv(); if (!cv) return;
+    cv.addEventListener('mousedown', function(e){
+      var b=cv.getBoundingClientRect();
+      _drag=true; _ox=e.clientX-b.left-_rx; _oy=e.clientY-b.top-_ry;
+    });
+    window.addEventListener('mousemove', function(e){
+      if(!_drag||!_ci) return;
+      var b=cv.getBoundingClientRect();
+      _rx=e.clientX-b.left-_ox; _ry=e.clientY-b.top-_oy;
+      _clamp(); _draw();
+    });
+    window.addEventListener('mouseup', function(){ _drag=false; });
+    cv.addEventListener('touchstart',function(e){
+      if(!_ci||e.touches.length!==1) return;
+      var b=cv.getBoundingClientRect();
+      _tp={sx:e.touches[0].clientX-b.left, sy:e.touches[0].clientY-b.top, rx:_rx, ry:_ry};
+    },{passive:true});
+    cv.addEventListener('touchmove',function(e){
+      e.preventDefault();
+      if(!_ci||!_tp||e.touches.length!==1) return;
+      var b=cv.getBoundingClientRect();
+      _rx=_tp.rx+(e.touches[0].clientX-b.left-_tp.sx);
+      _ry=_tp.ry+(e.touches[0].clientY-b.top-_tp.sy);
+      _clamp(); _draw();
+    },{passive:false});
+    cv.addEventListener('wheel',function(e){
+      if(!_ci) return; e.preventDefault();
+      var z=document.getElementById('crop-zoom');
+      var nv=Math.min(Math.max(+z.value+(e.deltaY>0?-0.1:0.1),1),4);
+      z.value=nv; cropSetZoom(nv);
+    },{passive:false});
+  });
+
+  /* 若 DOMContentLoaded 已过，立即绑定 */
+  if (document.readyState !== 'loading') {
+    (function bindNow(){
+      var cv = _cv(); if (!cv) return;
+      cv.addEventListener('mousedown', function(e){
+        var b=cv.getBoundingClientRect();
+        _drag=true; _ox=e.clientX-b.left-_rx; _oy=e.clientY-b.top-_ry;
+      });
+      window.addEventListener('mousemove', function(e){
+        if(!_drag||!_ci) return;
+        var b=cv.getBoundingClientRect();
+        _rx=e.clientX-b.left-_ox; _ry=e.clientY-b.top-_oy;
+        _clamp(); _draw();
+      });
+      window.addEventListener('mouseup', function(){ _drag=false; });
+      cv.addEventListener('touchstart',function(e){
+        if(!_ci||e.touches.length!==1) return;
+        var b=cv.getBoundingClientRect();
+        _tp={sx:e.touches[0].clientX-b.left,sy:e.touches[0].clientY-b.top,rx:_rx,ry:_ry};
+      },{passive:true});
+      cv.addEventListener('touchmove',function(e){
+        e.preventDefault();
+        if(!_ci||!_tp||e.touches.length!==1) return;
+        var b=cv.getBoundingClientRect();
+        _rx=_tp.rx+(e.touches[0].clientX-b.left-_tp.sx);
+        _ry=_tp.ry+(e.touches[0].clientY-b.top-_tp.sy);
+        _clamp(); _draw();
+      },{passive:false});
+      cv.addEventListener('wheel',function(e){
+        if(!_ci) return; e.preventDefault();
+        var z=document.getElementById('crop-zoom');
+        var nv=Math.min(Math.max(+z.value+(e.deltaY>0?-0.1:0.1),1),4);
+        z.value=nv; cropSetZoom(nv);
+      },{passive:false});
+    })();
+  }
+})();
+</script>
+</body>
+</html>

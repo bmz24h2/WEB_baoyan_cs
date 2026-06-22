@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 导师匹配 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+/* ── 全宽无居中 ── */
+.match-wrap {
+  width: 100%;
+  padding: 20px 20px 48px;
+  box-sizing: border-box;
+}
+
+/* ── 算法标签 ── */
+.algo-tag {
+  display: inline-block; font-size: 11px;
+  padding: 3px 10px; border-radius: 10px;
+  background: var(--teal-bg); color: var(--teal-txt); margin: 2px;
+}
+
+/* ── 双栏：左侧表单固定320px，右侧结果区弹性 ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media(min-width:1400px){ .two-col { grid-template-columns: 360px 1fr; } }
+@media(max-width:900px)  { .two-col { grid-template-columns: 1fr; } }
+
+/* ── 表单卡片（左侧，sticky 固定） ── */
+.form-card {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 22px;
+  position: sticky;
+  top: 56px;
+}
+@media(max-width:900px){ .form-card { position: static; } }
+.form-card-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+
+/* ── Chip ── */
+.chip-group { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 12px;
+  cursor: pointer; border: 0.5px solid var(--border2);
+  background: var(--surface2); color: var(--text2); transition: all .12s;
+}
+.chip:hover { background: var(--surface3); }
+.chip.sel { background: var(--purple-bg); color: var(--purple-txt); border-color: var(--purple-dim); }
+
+/* ── 结果区 ── */
+.result-area { min-height: 400px; }
+.sub-tab{background:none;border:none;padding:10px 18px;font-size:13px;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.sub-tab.active{color:var(--purple-mid);border-bottom-color:var(--purple-mid);font-weight:600}
+.sub-tab:hover{color:var(--text1)}
+.fav-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start}
+.fav-card-info{flex:1}
+.btn-unfav{background:none;border:none;cursor:pointer;font-size:18px;padding:2px 6px;color:var(--amber-txt,#8a6000)}
+
+/* ── 结果卡片网格：右侧宽屏时多列 ── */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+/* ── 评分环 ── */
+.score-ring {
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  width: 50px; height: 50px; border-radius: 50%;
+  border: 3px solid var(--green-mid); flex-shrink: 0;
+}
+.score-ring span { font-size: 14px; font-weight: 700; color: var(--green-txt); }
+.score-ring small { font-size: 9px; color: var(--text3); }
+
+@media(max-width:700px){
+  .match-wrap { padding: 14px 14px 48px; }
+  .form-card { padding: 14px; }
+}
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/features/favorites.js"></script>
+<script src="/js/features/session.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+
+<nav class="topnav"></nav>
+
+<div class="match-wrap">
+  <div class="page-header">
+    <h1>🧑‍AI 导师匹配</h1>
+    <p>多维度算法推荐：TF-IDF 向量化 · 余弦相似度 · PageRank 教授声誉 · 协同过滤</p>
+  </div>
+
+  <div style="margin-bottom:16px;display:flex;gap:6px;flex-wrap:wrap;">
+    <span class="algo-tag">TF-IDF 向量化</span>
+    <span class="algo-tag">余弦相似度</span>
+    <span class="algo-tag">PageRank 声誉</span>
+    <span class="algo-tag">协同过滤</span>
+    <span class="algo-tag">CS 方向分类树</span>
+    <span class="algo-tag">CCF 期刊评分</span>
+    <span class="algo-tag">多因素加权</span>
+  </div>
+
+  <div class="two-col">
+    <!-- 左：表单（sticky） -->
+    <div class="form-card">
+      <div class="form-card-title">填写你的情况</div>
+
+      <!-- ① 你感兴趣的研究方向（=你想找什么方向的老师） -->
+      <div class="form-group">
+        <label class="form-label">你感兴趣的研究方向
+          <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">系统会找做这些方向的老师</span>
+        </label>
+        <div class="chip-group" id="dir-chips">
+          <!-- 当下热门 -->
+          <span class="chip" data-v="大语言模型"     onclick="toggleChip(this)">大语言模型</span>
+          <span class="chip" data-v="具身智能"       onclick="toggleChip(this)">具身智能</span>
+          <span class="chip" data-v="多模态"         onclick="toggleChip(this)">多模态</span>
+          <span class="chip" data-v="计算机视觉"     onclick="toggleChip(this)">计算机视觉</span>
+          <span class="chip" data-v="自然语言处理"   onclick="toggleChip(this)">自然语言处理</span>
+          <span class="chip" data-v="机器学习"       onclick="toggleChip(this)">机器学习</span>
+          <span class="chip" data-v="强化学习"       onclick="toggleChip(this)">强化学习</span>
+          <span class="chip" data-v="自动驾驶"       onclick="toggleChip(this)">自动驾驶</span>
+          <span class="chip" data-v="图神经网络"     onclick="toggleChip(this)">图神经网络</span>
+          <span class="chip" data-v="网络安全"       onclick="toggleChip(this)">网络安全</span>
+          <!-- 经典方向 -->
+          <span class="chip" data-v="系统/体系结构"  onclick="toggleChip(this)">系统/体系结构</span>
+          <span class="chip" data-v="算法理论"       onclick="toggleChip(this)">算法理论</span>
+          <span class="chip" data-v="数据库/数据挖掘" onclick="toggleChip(this)">数据库/数据挖掘</span>
+          <span class="chip" data-v="软件工程"       onclick="toggleChip(this)">软件工程</span>
+          <span class="chip" data-v="高性能计算"     onclick="toggleChip(this)">高性能计算</span>
+          <!-- 细分/小众 -->
+          <span class="chip" data-v="嵌入式/物联网"  onclick="toggleChip(this)">嵌入式/物联网</span>
+          <span class="chip" data-v="人机交互"       onclick="toggleChip(this)">人机交互</span>
+          <span class="chip" data-v="量子计算"       onclick="toggleChip(this)">量子计算</span>
+          <span class="chip" data-v="网络与通信"     onclick="toggleChip(this)">网络与通信</span>
+        </div>
+        <input class="form-input" id="dir-custom"
+               placeholder="没有合适的？填细分方向，如：SLAM、联邦学习…"
+               style="font-size:12px;margin-top:6px">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">
+          选标签或填文字均可；支持近义词扩展（选"机器学习"也会匹配"深度学习"等）
+        </div>
+      </div>
+
+      <!-- ② 你的科研经历 -->
+      <div class="form-group">
+        <label class="form-label">你的科研经历
+          <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">做过什么，系统自动推断方向</span>
+        </label>
+        <textarea class="form-textarea" id="exp-kws" rows="3"
+          placeholder="自由描述你做过什么，例如：做过ResNet改进和目标检测、参与过CVPR论文写作、熟悉PyTorch和Transformer、参与过NLP文本分类项目…"></textarea>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">
+          从经历中自动识别方向（写"ResNet"→关联计算机视觉；写"BERT"→关联NLP）与老师方向匹配
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">4.0 制 GPA</label>
+        <input class="form-input" id="gpa" type="number" min="0" max="4.3" step="0.01" placeholder="3.7">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">专业排名百分比（%）</label>
+        <input class="form-input" id="rank-pct" type="number" min="1" max="100" placeholder="10  ← 前10%">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">目标院校梯队（多选）</label>
+        <div class="chip-group" id="tier-chips">
+          <span class="chip tier-all sel" data-v="" onclick="toggleTierAll(this)">不限（含211）</span>
+          <div style="width:100%;margin:3px 0 1px;font-size:10px;color:var(--text3)">— 985 / C9 —</div>
+          <span class="chip" data-v="顶尖C9"    onclick="toggleTier(this)">顶尖 C9</span>
+          <span class="chip" data-v="上游985"   onclick="toggleTier(this)">上游 985</span>
+          <span class="chip" data-v="中游985"   onclick="toggleTier(this)">中游 985</span>
+          <span class="chip" data-v="中下游985" onclick="toggleTier(this)">中下游 985</span>
+          <span class="chip" data-v="末流985"   onclick="toggleTier(this)">末流 985</span>
+          <span class="chip" data-v="中科院"    onclick="toggleTier(this)">中科院</span>
+          <div style="width:100%;margin:3px 0 1px;font-size:10px;color:var(--text3)">— 211 —</div>
+          <span class="chip" data-v="顶级211"   onclick="toggleTier(this)">顶级 211</span>
+          <span class="chip" data-v="中上211"   onclick="toggleTier(this)">中上 211</span>
+          <span class="chip" data-v="中流211"   onclick="toggleTier(this)">中流 211</span>
+          <span class="chip" data-v="中下211"   onclick="toggleTier(this)">中下 211</span>
+          <span class="chip" data-v="末流211"   onclick="toggleTier(this)">末流 211</span>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">
+          选"不限"= 搜全库；选具体梯队 = 仅搜该梯队（若无数据提示爬取）
+        </div>
+      </div>
+
+      <button class="btn btn-pri btn-full" id="match-btn" onclick="doMatch()">开始匹配</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">方向兴趣 + 科研经历 → 与老师研究方向双维匹配</div>
+    </div>
+
+    <!-- 右：结果区（弹性，宽屏多列网格） -->
+    <div class="result-area">
+      <!-- 子标签 -->
+      <div style="border-bottom:.5px solid var(--border);padding:0 4px;display:flex;gap:0;align-items:center;background:var(--surface)">
+        <button class="sub-tab active" id="tab-match" onclick="switchMatchTab('match')">智能匹配</button>
+        <button class="sub-tab" id="tab-fav" onclick="switchMatchTab('fav')">⭐ 收藏导师</button>
+        <span id="api-status" style="margin-left:auto;font-size:12px;color:var(--text3);padding-right:8px"></span>
+      </div>
+
+      <div id="panel-match">
+        <div id="result-inner" style="padding:12px 0">
+          <div style="color:var(--text3);font-size:13px;padding:20px 4px">填写背景后点击「开始匹配」，系统将为你计算最匹配导师。</div>
+        </div>
+      </div>
+
+      <!-- 收藏列表 -->
+      <div id="panel-fav" style="display:none;padding:16px 0">
+        <div id="fav-inner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   advisor-match.js — 无模拟数据版
+   逻辑：
+     1. POST /api/recommend → 有结果 → renderResults()
+     2. 无结果 + scrapeTargets → showScrapePrompt()
+     3. 无结果 + 无 scrapeTargets → 已全爬但无匹配
+     4. 网络异常（后端未启动）→ showOffline()
+   绝不显示硬编码假数据
+═══════════════════════════════════════════════════════ */
+
+const API = 'http://localhost:8080/api';
+
+function toggleChip(el){ el.classList.toggle('sel'); }
+function getSelectedChips(id){ return [...document.querySelectorAll(`#${id} .chip.sel`)].map(c=>c.dataset.v); }
+function setResult(html){ document.getElementById('result-inner').innerHTML = html; }
+
+// ── 梯队芯片：互斥逻辑 ───────────────────────────────────
+// "不限" 和具体梯队互斥：选不限→清除其他；选具体梯队→清除"不限"
+function toggleTierAll(el){
+  const wasSelected = el.classList.contains('sel');
+  // 清除所有梯队选中状态
+  document.querySelectorAll('#tier-chips .chip').forEach(c => c.classList.remove('sel'));
+  if(!wasSelected) el.classList.add('sel'); // 切换自己
+}
+function toggleTier(el){
+  // 取消"不限"
+  const allChip = document.querySelector('#tier-chips .tier-all');
+  if(allChip) allChip.classList.remove('sel');
+  el.classList.toggle('sel');
+  // 如果一个都没选了，自动恢复"不限"
+  const anySelected = [...document.querySelectorAll('#tier-chips .chip:not(.tier-all)')].some(c=>c.classList.contains('sel'));
+  if(!anySelected && allChip) allChip.classList.add('sel');
+}
+
+/** 获取有效梯队列表：空数组 = 不限（搜全库） */
+function getSelectedTiers(){
+  const allSel = document.querySelector('#tier-chips .tier-all.sel');
+  if(allSel) return []; // "不限"选中 → 空数组 → 后端搜全库
+  return [...document.querySelectorAll('#tier-chips .chip:not(.tier-all).sel')].map(c=>c.dataset.v);
+}
+
+// ── 主入口 ──────────────────────────────────────────────
+async function doMatch(){
+  const chipDirs  = getSelectedChips('dir-chips');
+  const customEl  = document.getElementById('dir-custom');
+  const customDir = customEl ? customEl.value.trim() : '';
+  const tiers     = getSelectedTiers();
+  const gpa       = parseFloat(document.getElementById('gpa').value) || 0;
+  const rank      = parseFloat(document.getElementById('rank-pct').value) || 50;
+  const expEl     = document.getElementById('exp-kws');
+  const exp       = expEl ? expEl.value.trim() : '';
+
+  const customTokens = customDir.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  const allDirs = [...new Set([...chipDirs, ...customTokens])];
+
+  if(allDirs.length === 0 && exp === ''){
+    setResult('<div style="color:var(--amber-txt,#b08000);font-size:13px;padding:16px 0">'
+      + '⚠ 请至少选择一个感兴趣的方向，或描述你的科研经历（两者其一即可）。</div>');
+    return;
+  }
+
+  const btn = document.getElementById('match-btn');
+  btn.textContent = '计算中…'; btn.disabled = true;
+
+  try{
+    const resp = await fetch(`${API}/recommend`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ dirs: allDirs, tiers, gpa, rankPct: rank,
+                             background: exp, sessionEvents: getSessionEvents() }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    console.log('[match] response:', data);
+
+    if(data.results && data.results.length > 0){
+      renderResults(data.results, data.elapsed);
+      // 有结果但还有未爬院校 → 在结果下方显示补爬提示
+      if(data.partialScrapeTargets && data.partialScrapeTargets.length > 0){
+        showPartialScrapeHint(data.partialScrapeTargets, data.partialHint || '');
+      }
+    } else if((data.pureTargets?.length > 0) || (data.crossTargets?.length > 0)){
+      showScrapePrompt(data.pureTargets || [], data.crossTargets || [], data.hint || '');
+    } else if(data.scrapeTargets && data.scrapeTargets.length > 0){
+      // 向后兼容旧格式
+      showScrapePrompt(data.scrapeTargets.map(n=>({name:n,type:'pure',domains:[]})), [], data.hint || '');
+    } else {
+      setResult(`<div style="color:var(--text3);font-size:13px;padding-top:20px;line-height:1.8">
+        ${data.hint || '所选梯队数据库中暂无匹配教师。'}<br>
+        ${tiers.length === 0
+          ? '提示：当前为"不限"模式，已搜索全库。可爬取更多院校后重试。'
+          : '可尝试切换为"不限（含211）"搜索现有数据，或触发目标梯队的爬取。'}
+      </div>`);
+    }
+  } catch(e){
+    console.error('[match] error:', e);
+    showOffline(e.message);
+  } finally{
+    btn.textContent = '开始匹配'; btn.disabled = false;
+  }
+}
+
+// ── 有结果但有未爬院校 → 结果下方追加补爬提示横幅 ──────────
+function showPartialScrapeHint(targets, hint){
+  const existing = document.getElementById('partial-scrape-hint');
+  if(existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'partial-scrape-hint';
+  div.style.cssText = 'margin-top:14px;background:var(--amber-bg,#fffbeb);border:1px solid var(--amber-mid,#f0c030);border-radius:var(--r,8px);padding:12px 16px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  div.innerHTML = `
+    <span><strong style="color:var(--amber-txt,#8a6000)">匹配范围可扩大</strong>　${esc(hint)}</span>
+    <button id="partial-scrape-btn"
+      style="background:var(--amber-mid,#f0c030);color:#4a3800;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">
+      一键补爬（${targets.length}所）
+    </button>`;
+  document.getElementById('result-inner').appendChild(div);
+  // 数据用闭包捕获，不拼进 HTML
+  const btn = div.querySelector('#partial-scrape-btn');
+  btn.addEventListener('click', ()=>{
+    triggerScrape(targets);
+    div.style.opacity = '.5';
+  });
+}
+
+// ── 从个人信息页读取默认值 ──────────────────────────────────
+function loadFromProfile(){
+  const raw = localStorage.getItem('baoyan_profile');
+  if(!raw) return;
+  try{
+    const d = JSON.parse(raw);
+    if(d.gpa)        document.getElementById('gpa').value      = d.gpa;
+    if(d.rankPct)    document.getElementById('rank-pct').value = d.rankPct;
+    if(d.experience) document.getElementById('exp-kws').value  = d.experience;
+    (d.targetDirs||[]).forEach(v=>{
+      document.querySelector(`#dir-chips .chip[data-v="${v}"]`)?.classList.add('sel');
+    });
+    if(d.targetTiers?.length){
+      document.querySelector('#tier-chips .chip[data-v=""]')?.classList.remove('sel');
+      d.targetTiers.forEach(v=>{
+        document.querySelector(`#tier-chips .chip[data-v="${v}"]`)?.classList.add('sel');
+      });
+    }
+    if(d.name||d.school||d.major)
+      console.log(`[profile] 已加载默认值：${d.name||''}@${d.school||''}`);
+  }catch(e){}
+}
+loadFromProfile();
+
+// Session 追踪 → SessionTracker 模块（session.js）
+function trackTeacherClick(t){ SessionTracker.track(t); }
+function getSessionEvents(){ return SessionTracker.getEvents(); }
+
+
+// ── 渲染真实匹配结果 ────────────────────────────────────
+function renderResults(results, elapsed){
+  // 把结果存到全局，供事件绑定按索引取数据（避免在 HTML 字符串里拼 JSON 破坏属性）
+  window.__matchResults = results;
+
+  const header = `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+    共找到 ${results.length} 位匹配导师，按综合评分排序
+    <span style="margin-left:8px;opacity:.6">${elapsed||''}</span></div>`;
+
+  const esc = s => String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const cards = results.map((r,i)=>`
+  <div class="result-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div class="score-ring">
+        <span>${Math.round((r.score||0)*100)}</span><small>分</small>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700">
+          ${esc(r.name)||'—'} <span style="font-size:12px;font-weight:400;color:var(--text3)">${esc(r.title)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2)">${esc(r.university)} · ${esc(r.dept)}</div>
+      </div>
+      <span class="result-rank">${i+1}</span>
+    </div>
+    <div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">
+      ${(r.dirs||[]).map(d=>`<span class="xkw">${esc(d)}</span>`).join('')}
+    </div>
+    <div class="match-bar-wrap"><div class="match-bar" style="width:${Math.round((r.score||0)*100)}%"></div></div>
+    ${r.reason?`<div style="font-size:12px;color:var(--text2);margin-top:6px">${esc(r.reason)}</div>`:''}
+    ${r.profileUrl?`<div style="margin-top:6px;display:flex;align-items:center;gap:10px">
+      <a href="${esc(r.profileUrl)}" target="_blank" data-track-idx="${i}"
+         style="font-size:11px;color:var(--blue-txt,#3a7bd5)">主页</a>
+      <button data-fav-idx="${i}"
+        style="background:none;border:none;cursor:pointer;font-size:15px;padding:0"
+        title="收藏此导师">${isFaved(r.name,r.university)?'⭐':'☆'}</button>
+    </div>`:''}
+  </div>`).join('');
+
+  // 从结果中提取出现的院校列表，供重爬使用
+  const unis = [...new Set(results.map(r => r.university).filter(Boolean))];
+  window.__rescrapeUnis = unis;
+
+  const rescrapeBar = unis.length === 0 ? '' : `
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <details>
+        <summary style="font-size:12px;color:var(--text3);cursor:pointer;user-select:none">
+          数据不完整或想更新？重新爬取结果中的院校
+        </summary>
+        <div style="margin-top:10px;font-size:12px;color:var(--text2);line-height:2">
+          ${unis.map(u=>`<span style="display:inline-block;background:var(--surface2);border-radius:4px;padding:1px 8px;margin:2px">${esc(u)}</span>`).join('')}
+        </div>
+        <button id="rescrape-btn"
+          style="margin-top:8px;background:var(--blue-mid,#3a7bd5);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">
+          重新爬取（${unis.length} 所）
+        </button>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">
+          重爬完成后点"开始匹配"可看到更完整的结果
+        </div>
+      </details>
+    </div>`;
+
+  setResult(header + '<div class="results-grid">' + cards + '</div>' + rescrapeBar);
+
+  // ── 渲染后绑定事件（数据用索引从 window.__matchResults 取，绝不拼进 HTML）──
+  const root = document.getElementById('result-inner');
+
+  // 收藏按钮
+  root.querySelectorAll('[data-fav-idx]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const r = window.__matchResults[+btn.dataset.favIdx];
+      // 兼容后端不同字段名：dirs / researchAreas / research_areas
+      const dirs = r.dirs
+        || (typeof r.researchAreas === 'string' ? r.researchAreas.split(/[,，、]+/).map(s=>s.trim()).filter(Boolean) : r.researchAreas)
+        || (typeof r.research_areas === 'string' ? r.research_areas.split(/[,，、]+/).map(s=>s.trim()).filter(Boolean) : r.research_areas)
+        || [];
+      toggleFav({name:r.name, university:r.university, title:r.title,
+                 dirs, profileUrl:r.profileUrl, score:r.score}, btn);
+    });
+  });
+
+  // 主页链接的 Session 追踪
+  root.querySelectorAll('[data-track-idx]').forEach(a=>{
+    a.addEventListener('click', ()=>{
+      const r = window.__matchResults[+a.dataset.trackIdx];
+      trackTeacherClick({name:r.name, university:r.university, dirs:r.dirs});
+    });
+  });
+
+  // 重新爬取按钮
+  const rb = document.getElementById('rescrape-btn');
+  if(rb){
+    rb.addEventListener('click', ()=>{
+      triggerScrape(window.__rescrapeUnis);
+      rb.textContent = '已触发，后台运行中…';
+      rb.disabled = true;
+    });
+  }
+}
+
+// ── 无数据 → 显示触发爬取 UI ──────────────────────────────
+function showScrapePrompt(pureTargets, crossTargets, hint){
+  window.__pureScrapeTargets  = pureTargets.map(t => t.name || t);
+  window.__crossScrapeTargets = crossTargets.map(t => t.name || t);
+
+  const pureSection = pureTargets.length === 0 ? '' : `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">🎓 纯 CS / 工科院校（${pureTargets.length} 所）</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.8">
+        ${pureTargets.map(t=>`<span style="display:inline-block;background:var(--surface2);border-radius:4px;padding:2px 8px;margin:2px">${t.name||t}</span>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">使用标准爬虫：直连院系官网 + 百度/AMiner/DBLP 间接搜索</div>
+      <button style="background:var(--amber-mid,#f0c030);color:#4a3800;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer"
+        onclick="triggerScrape(window.__pureScrapeTargets)">
+        爬取纯CS院校（${pureTargets.length} 所）
+      </button>
+    </div>`;
+
+  const crossSection = crossTargets.length === 0 ? '' : `
+    <div style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">🔀 交叉学科院校（${crossTargets.length} 所）</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+        ${crossTargets.map(t=>`
+          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">
+            <span style="background:var(--purple-bg,#f0eaff);border-radius:4px;padding:2px 8px;font-size:12px;flex-shrink:0">${t.name||t}</span>
+            <span style="font-size:11px;color:var(--text3)">${t.hint||''}</span>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        使用交叉学科专用策略：针对数字媒体/金融科技/信息管理等方向定向搜索，比标准策略更全面
+      </div>
+      <button style="background:var(--purple-mid,#9b6dff);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer"
+        onclick="triggerScrape(window.__crossScrapeTargets)">
+        🔀 爬取交叉学科院校（${crossTargets.length} 所）
+      </button>
+    </div>`;
+
+  const all = [...window.__pureScrapeTargets, ...window.__crossScrapeTargets];
+  setResult(`
+    <div style="background:var(--amber-bg,#fffbeb);border:1px solid var(--amber-mid,#f0c030);
+                border-radius:var(--r,8px);padding:20px 24px;max-width:620px">
+      <div style="font-size:15px;font-weight:700;color:var(--amber-txt,#8a6000);margin-bottom:4px">
+        📭 数据库中暂无匹配教师
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">
+        ${hint||'所选梯队的院校尚未爬取。'} ⏱ 每所约 1–3 分钟，请保持后端运行。
+      </div>
+      ${pureSection}
+      ${crossSection}
+      ${all.length > 1 ? `<div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
+        <button style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer"
+          onclick="triggerScrape([...window.__pureScrapeTargets,...window.__crossScrapeTargets])">
+          🚀 全部一起爬取（${all.length} 所）
+        </button></div>` : ''}
+    </div>`);
+}
+
+async function triggerScrape(universities){
+  const btn = document.getElementById('scrape-trigger-btn');
+  if(btn){ btn.textContent='触发中…'; btn.disabled=true; }
+  try{
+    const resp = await fetch(`${API}/scrape`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({universities}),signal:AbortSignal.timeout(6000)
+    });
+    await resp.json();
+    showScrapeProgress(universities);
+  } catch(e){
+    setResult(`<div style="color:var(--coral-txt,#c0392b);font-size:13px;padding:16px 0">
+      ❌ 触发失败（${e.message}）。请确认后端正在运行。</div>`);
+  }
+}
+
+function showScrapeProgress(universities){
+  setResult(`
+    <div style="background:var(--blue-bg,#f0f4ff);border:1px solid var(--blue-mid,#5a9cf5);
+                border-radius:var(--r,8px);padding:20px 24px;max-width:560px">
+      <div style="font-size:15px;font-weight:700;color:var(--blue-txt,#1a5bc0);margin-bottom:8px">
+        爬取任务已启动
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+        正在爬取：<strong>${universities.join('、')}</strong>
+      </div>
+      <div id="scrape-prog-list" style="font-size:13px;color:var(--text3)">查询进度中…</div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text3)">
+        完成后请点击"开始匹配"重新搜索。
+      </div>
+    </div>`);
+  universities.forEach(u => pollProgress(u));
+}
+
+async function pollProgress(university){
+  const progEl = document.getElementById('scrape-prog-list');
+  let dots = 0;
+  const ticker = setInterval(async () => {
+    if(!progEl || !document.body.contains(progEl)){ clearInterval(ticker); return; }
+    try{
+      const r = await fetch(`${API}/scrape/progress/${encodeURIComponent(university)}`,
+                            {signal:AbortSignal.timeout(3000)});
+      if(!r.ok) throw new Error();
+      const d = await r.json();
+      const count = d.count ?? d.teacherCount ?? 0;
+      const done  = d.done ?? (d.status === 'DONE') ?? false;
+      const line  = done
+        ? `✅ ${university}：已爬取 ${count} 位教师（完成）`
+        : `${university}：已爬取 ${count} 位${'·'.repeat((++dots)%4+1)}`;
+      const existing = document.getElementById('prog-'+university.replace(/\s/g,''));
+      if(existing){ existing.textContent = line; }
+      else{
+        const span = document.createElement('div');
+        span.id = 'prog-'+university.replace(/\s/g,'');
+        span.textContent = line;
+        progEl.appendChild(span);
+      }
+      if(done) clearInterval(ticker);
+    } catch(_){ dots++; }
+  }, 4000);
+  setTimeout(()=>clearInterval(ticker), 600000);
+}
+
+function showOffline(reason){
+  setResult(`
+    <div style="color:var(--text3);font-size:13px;padding-top:20px;line-height:1.8">
+      ⚠ <strong>后端未连接</strong>（${reason||'请求失败'}）<br>
+      请运行：<code style="background:var(--surface2);padding:2px 6px;border-radius:4px">mvn spring-boot:run</code>
+    </div>`);
+}
+
+// ── 后端状态检测 ────────────────────────────────────────────
+(async()=>{
+  try{
+    const r = await fetch(`${API}/teachers/stats`,{signal:AbortSignal.timeout(2500)});
+    if(r.ok){
+      document.getElementById('api-status').textContent='✅ 后端已连接';
+      document.getElementById('api-status').classList.add('ok');
+    } else throw new Error();
+  } catch(_){
+    document.getElementById('api-status').textContent='⚠ 后端未启动';
+    document.getElementById('api-status').classList.add('warn');
+    setResult(`<div style="color:var(--text3);font-size:13px;padding-top:20px;line-height:1.8">
+      ⚠ 后端未启动，匹配功能暂不可用。<br>
+      请运行：<code style="background:var(--surface2);padding:2px 6px;border-radius:4px">mvn spring-boot:run</code></div>`);
+  }
+})();
+
+// 收藏系统 → Favorites 模块（favorites.js）
+function toggleFav(t,btn){ Favorites.toggle(t,btn); }
+function isFaved(n,u){ return Favorites.isFaved(n,u); }
+function removeFav(n,u){ Favorites.remove(n,u); }
+function renderFavs(){ Favorites.render("fav-inner"); }
+
+// 子标签切换：智能匹配 ↔ 收藏导师
+function switchMatchTab(which){
+  const isMatch = which === 'match';
+  document.getElementById('panel-match').style.display = isMatch ? '' : 'none';
+  document.getElementById('panel-fav').style.display   = isMatch ? 'none' : '';
+  document.getElementById('tab-match').classList.toggle('active',  isMatch);
+  document.getElementById('tab-fav').classList.toggle('active',   !isMatch);
+  // 切到收藏页时渲染收藏列表
+  if(!isMatch) renderFavs();
+}
+
+
+</script>
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人陈述 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+.stmt-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 0;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+}
+/* 左侧配置 */
+.stmt-config {
+  border-right: 0.5px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  padding: 20px;
+}
+.config-section {
+  margin-bottom: 18px;
+}
+.config-label {
+  font-size: 12px; font-weight: 700; color: var(--text2);
+  margin-bottom: 6px; display: block;
+}
+.config-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 9px 12px; font-size: 13px;
+  background: var(--surface2); color: var(--text1);
+  outline: none; transition: border-color .15s;
+}
+.config-input:focus { border-color: var(--purple-mid); }
+.config-textarea {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 9px 12px; font-size: 12px; line-height: 1.6;
+  background: var(--surface2); color: var(--text1);
+  outline: none; resize: vertical;
+  transition: border-color .15s;
+}
+.config-textarea:focus { border-color: var(--purple-mid); }
+.type-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.type-btn {
+  padding: 10px 8px; border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-weight: 600; text-align: center;
+  border: 1.5px solid var(--border2); background: var(--surface2);
+  color: var(--text2); transition: all .12s; line-height: 1.4;
+}
+.type-btn.sel {
+  background: var(--purple-bg); border-color: var(--purple-mid);
+  color: var(--purple-txt);
+}
+.gen-btn {
+  width: 100%; padding: 12px;
+  background: var(--purple-mid,#7c4dff); color: #fff;
+  border: none; border-radius: 8px; font-size: 14px;
+  font-weight: 600; cursor: pointer; margin-top: 4px;
+  transition: opacity .15s;
+}
+.gen-btn:hover { opacity: .88; }
+.gen-btn:disabled { opacity: .5; cursor: not-allowed; }
+.profile-hint {
+  font-size: 11px; color: var(--text3);
+  background: var(--surface2);
+  border-radius: 6px; padding: 8px 10px;
+  margin-bottom: 16px; line-height: 1.6;
+}
+.tone-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tone-chip {
+  padding: 4px 12px; border-radius: 16px;
+  font-size: 11px; cursor: pointer;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--text2); transition: all .12s;
+}
+.tone-chip.sel {
+  background: var(--blue-bg,#e8f0fe);
+  border-color: var(--blue-mid,#3a7bd5);
+  color: var(--blue-txt,#1a4fa0);
+}
+.length-select {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 8px 12px; font-size: 12px;
+  background: var(--surface2); color: var(--text1); outline: none;
+}
+
+/* 右侧输出 */
+.stmt-output {
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--bg);
+}
+.output-toolbar {
+  padding: 14px 24px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 10px;
+}
+.output-title { font-size: 14px; font-weight: 700; flex: 1; }
+.toolbar-btn {
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 6px 14px; font-size: 12px; cursor: pointer;
+}
+.toolbar-btn:hover { background: var(--border2); }
+.output-area {
+  flex: 1; overflow-y: auto;
+  padding: 28px 32px;
+  font-size: 14px; line-height: 2; color: var(--text1);
+}
+.placeholder-msg {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; text-align: center;
+  color: var(--text3); font-size: 14px;
+}
+.placeholder-msg .icon { font-size: 48px; margin-bottom: 16px; }
+.version-list {
+  padding: 12px 24px;
+  border-top: 0.5px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.version-chip {
+  padding: 4px 12px; border-radius: 16px; cursor: pointer;
+  font-size: 11px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text2);
+  white-space: nowrap; flex-shrink: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.version-chip.active {
+  background: var(--purple-bg); border-color: var(--purple-mid);
+  color: var(--purple-txt); font-weight: 600;
+}
+.version-chip:hover:not(.active) {
+  background: var(--surface); border-color: var(--text3);
+}
+.char-count { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+#version-chips::-webkit-scrollbar { display: none; }
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+<nav class="topnav"></nav>
+
+<div class="stmt-layout">
+  <!-- 左侧配置 -->
+  <div class="stmt-config">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">个人陈述生成</div>
+
+    <div class="profile-hint" id="profile-hint">
+      ℹ️ 未找到个人信息。请先前往
+      <a href="/html/profile.html" style="color:var(--purple-mid)">个人信息页</a>填写，
+      生成结果将更贴合你的实际背景。
+    </div>
+
+    <!-- 陈述类型 -->
+    <div class="config-section">
+      <label class="config-label">陈述类型</label>
+      <div class="type-grid" id="type-grid">
+        <div class="type-btn sel" data-v="summer_camp" onclick="selectType(this)">☀️ 夏令营<br><small style="font-weight:400">申请材料</small></div>
+        <div class="type-btn" data-v="direct_rec" onclick="selectType(this)">🏆 直推免试<br><small style="font-weight:400">免试申请</small></div>
+        <div class="type-btn" data-v="pre_rec" onclick="selectType(this)">🔔 预推免<br><small style="font-weight:400">联系导师</small></div>
+        <div class="type-btn" data-v="winter_camp" onclick="selectType(this)">❄️ 冬令营<br><small style="font-weight:400">申请材料</small></div>
+      </div>
+    </div>
+
+    <!-- 目标院校/导师 -->
+    <div class="config-section">
+      <label class="config-label">目标院校</label>
+      <input class="config-input" id="target-school" placeholder="如：浙江大学">
+    </div>
+    <div class="config-section">
+      <label class="config-label">目标导师（可选）</label>
+      <input class="config-input" id="target-prof" placeholder="如：张三教授（图神经网络方向）">
+    </div>
+    <div class="config-section">
+      <label class="config-label">意向研究方向</label>
+      <input class="config-input" id="target-dir" placeholder="如：大语言模型、具身智能">
+    </div>
+
+    <!-- 特别强调 -->
+    <div class="config-section">
+      <label class="config-label">特别希望突出的内容（可选）</label>
+      <textarea class="config-textarea" id="highlight" rows="3"
+        placeholder="如：我参与的项目已投CVPR；我熟悉导师的某篇论文并有想法…"></textarea>
+    </div>
+
+    <!-- 风格 -->
+    <div class="config-section">
+      <label class="config-label">写作风格</label>
+      <div class="tone-chips" id="tone-chips">
+        <div class="tone-chip sel" data-v="professional" onclick="toggleTone(this)">专业严谨</div>
+        <div class="tone-chip" data-v="sincere" onclick="toggleTone(this)">真诚热情</div>
+        <div class="tone-chip" data-v="concise" onclick="toggleTone(this)">简洁有力</div>
+        <div class="tone-chip" data-v="research" onclick="toggleTone(this)">学术导向</div>
+      </div>
+    </div>
+
+    <!-- 字数 -->
+    <div class="config-section">
+      <label class="config-label">目标字数</label>
+      <select class="length-select" id="length-select">
+        <option value="500">约 500 字（邮件联系导师）</option>
+        <option value="800" selected>约 800 字（夏令营标准）</option>
+        <option value="1200">约 1200 字（完整申请材料）</option>
+        <option value="1500">约 1500 字（直推详细版）</option>
+      </select>
+    </div>
+
+    <button class="gen-btn" id="gen-btn" onclick="generate()">生成个人陈述</button>
+    <button class="gen-btn" id="regen-btn" onclick="regenerate()"
+      style="margin-top:8px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">
+      换个版本
+    </button>
+  </div>
+
+  <!-- 右侧输出 -->
+  <div class="stmt-output">
+    <div class="output-toolbar">
+      <div class="output-title" id="output-title">个人陈述</div>
+      <button class="toolbar-btn" onclick="copyOutput()">复制全文</button>
+      <button class="toolbar-btn" onclick="downloadOutput()">下载 .txt</button>
+    </div>
+
+    <div class="output-area" id="output-area" contenteditable="true" spellcheck="false">
+      <div class="placeholder-msg">
+        <div class="icon">📝</div>
+        <div>在左侧填写信息，点「生成个人陈述」</div>
+        <div style="font-size:12px;margin-top:8px;color:var(--text3)">
+          自动读取个人信息页的背景数据<br>生成后可直接在此编辑
+        </div>
+      </div>
+    </div>
+
+    <div class="version-list" style="flex-wrap:nowrap;overflow:hidden">
+      <span style="font-size:12px;color:var(--text3);flex-shrink:0;white-space:nowrap">历史版本：</span>
+      <div id="version-chips" style="display:flex;gap:6px;flex:1;overflow-x:auto;overflow-y:hidden;
+           scrollbar-width:none;-ms-overflow-style:none;padding:2px 0"></div>
+      <button onclick="clearVersions()" style="font-size:11px;padding:2px 8px;border-radius:5px;
+           border:.5px solid var(--border2);background:var(--surface);color:var(--text3);
+           cursor:pointer;flex-shrink:0;white-space:nowrap;margin-left:4px">清空</button>
+      <span class="char-count" id="char-count"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api';
+let profile = {};
+let selectedType = 'summer_camp';
+function verKey(){ return 'baoyan_stmt_' + selectedType; }
+function loadVersions(){ try{ return JSON.parse(localStorage.getItem(verKey())||'[]'); }catch(_){ return []; } }
+function saveVersions(v){ localStorage.setItem(verKey(), JSON.stringify(v)); }
+let versions = [];
+
+const TYPE_LABELS = {
+  summer_camp:'夏令营申请',
+  direct_rec: '直推免试',
+  pre_rec:    '预推免联系',
+  winter_camp:'冬令营申请'
+};
+
+// ── 初始化 ───────────────────────────────────────────────────────────
+(function init(){
+  try{ profile = JSON.parse(localStorage.getItem('baoyan_profile')||'{}'); }catch(_){}
+  if(profile.name || profile.school){
+    document.getElementById('profile-hint').innerHTML =
+      `✅ 已读取个人信息：<b>${profile.name||''}@${profile.school||''}</b>，
+       GPA ${profile.gpa||'?'}，排名 ${profile.rankPct ? (profile.rankPct.includes('/') ? profile.rankPct : '前'+profile.rankPct+'%') : '?'}`;
+    document.getElementById('profile-hint').style.background = 'var(--green-bg,#e8f5e9)';
+  }
+  if(profile.targetDirs?.length)
+    document.getElementById('target-dir').value = profile.targetDirs.join('、');
+  // ★ 同步目标院校
+  if(profile.targetSchools)
+    document.getElementById('target-school').value = profile.targetSchools;
+  // ★ 恢复历史版本 + 显示最新版本内容（按初始选中类型）
+  versions = loadVersions();
+  renderVersions();
+  if(versions.length > 0){
+    const area = document.getElementById('output-area');
+    area.textContent = versions[0].text;
+    updateCharCount(versions[0].text);
+  }
+})();
+
+function selectType(el){
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedType = el.dataset.v;
+  versions = loadVersions();
+  renderVersions();
+  // 恢复该类型最新版本
+  const area = document.getElementById('output-area');
+  if(versions.length > 0){
+    area.textContent = versions[0].text;
+    updateCharCount(versions[0].text);
+  } else {
+    area.innerHTML = '<div class="placeholder-msg"><div class="icon">📝</div><div>在左侧填写信息，点「生成个人陈述」</div></div>';
+    document.getElementById('char-count').textContent='';
+  }
+}
+function toggleTone(el){ el.classList.toggle('sel'); }
+
+// ── 生成 ─────────────────────────────────────────────────────────────
+async function generate(){
+  const school  = document.getElementById('target-school').value.trim();
+  const prof    = document.getElementById('target-prof').value.trim();
+  const dir     = document.getElementById('target-dir').value.trim() || profile.targetDirs?.join('、') || '';
+  const hl      = document.getElementById('highlight').value.trim();
+  const length  = document.getElementById('length-select').value;
+  const tones   = [...document.querySelectorAll('.tone-chip.sel')].map(c=>c.textContent).join('、');
+
+  if(!school){ alert('请填写目标院校'); return; }
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true; btn.textContent = '生成中…';
+
+  const outputArea = document.getElementById('output-area');
+  outputArea.innerHTML = '<span style="color:var(--text3);font-size:13px">✍️ 正在生成，请稍候…</span>';
+
+  const systemPrompt = `你是一位资深保研咨询导师，擅长写作高质量的 CS 方向保研个人陈述。
+请严格遵守以下要求：
+1. 字数约 ${length} 字，不要超出太多
+2. 风格：${tones || '专业严谨'}
+3. 陈述类型：${TYPE_LABELS[selectedType]}
+4. 结构参考：开篇点题 → 学术背景/成绩 → 核心科研经历（具体） → 为什么选这个方向/院校 → 研究规划 → 结尾
+5. 要有真实细节感，避免模板式空话
+6. 第一人称，不要用"我是一名优秀的学生"等夸大措辞
+7. 直接输出正文，不要加标题和说明`;
+
+  const userMsg = `请为以下背景生成一份${TYPE_LABELS[selectedType]}个人陈述：
+
+【申请人背景】
+- 姓名：${profile.name || '（未填写）'}
+- 本科院校：${profile.school || '（未填写）'}
+- 专业：${profile.major || '（未填写）'}
+- GPA：${profile.gpa || '（未填写）'}，专业排名：前 ${profile.rankPct || '?'}%
+- 科研经历：${profile.experience || '（未填写，请根据方向合理推断）'}
+
+【申请信息】
+- 目标院校：${school}
+- 目标导师：${prof || '（不指定）'}
+- 意向研究方向：${dir || '（未指定）'}
+${hl ? `- 特别希望突出：${hl}` : ''}
+
+请现在开始生成正文：`;
+
+  try{
+    const resp = await fetch(`${API}/chat`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        message: userMsg,
+        context: systemPrompt,
+        history: [],
+        selectedModel: null
+      })
+    });
+
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', text = '';
+    outputArea.innerHTML = '';
+
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buffer += decoder.decode(value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        try{
+          const ev = JSON.parse(raw);
+          const token = ev.data || ev.content || ev.text || '';
+          if(token){ text += token; outputArea.textContent = text; }
+        }catch(_){
+          if(raw && raw!=='[DONE]'){ text += raw; outputArea.textContent = text; }
+        }
+      }
+    }
+
+    // 保存版本
+    if(text.length > 50){
+      versions.unshift({ text, label: `${school} · ${TYPE_LABELS[selectedType]}`, ts: Date.now() });
+      if(versions.length > 5) versions.pop();
+      saveVersions(versions);
+      renderVersions();
+      updateCharCount(text);
+    }
+  }catch(e){
+    outputArea.innerHTML = '<div style="color:var(--coral-mid,#d44)">❌ 无法连接 AI，请确认后端已启动（mvn spring-boot:run）</div>';
+  }finally{
+    btn.disabled = false; btn.textContent = '生成个人陈述';
+  }
+}
+
+function regenerate(){
+  generate();
+}
+
+function renderVersions(){
+  const chips = document.getElementById('version-chips');
+  if(!versions.length){
+    chips.innerHTML = '<span style="font-size:11px;color:var(--text3)">暂无历史版本</span>';
+    return;
+  }
+  chips.innerHTML = versions.map((v,i)=>
+    `<button class="version-chip${i===0?' active':''}" onclick="showVersion(${i})">版本${versions.length-i}</button>`
+  ).join('');
+}
+
+function clearVersions(){
+  if(!versions.length) return;
+  if(!confirm('清空所有历史版本？')) return;
+  versions=[];
+  saveVersions(versions);
+  renderVersions();
+  document.getElementById('char-count').textContent='';
+}
+
+function showVersion(i){
+  document.getElementById('output-area').textContent = versions[i].text;
+  updateCharCount(versions[i].text);
+  document.querySelectorAll('#version-chips .version-chip').forEach((c,j)=>
+    c.classList.toggle('active', j===i));
+}
+
+function updateCharCount(text){
+  const n = text.replace(/\s/g,'').length;
+  document.getElementById('char-count').textContent = `${n} 字`;
+}
+
+function copyOutput(){
+  const text = document.getElementById('output-area').textContent.trim();
+  if(!text || text.includes('在左侧填写')) return;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.querySelector('.toolbar-btn');
+    btn.textContent = '✅ 已复制'; setTimeout(()=>btn.textContent='复制全文',2000);
+  });
+}
+
+function downloadOutput(){
+  const text = document.getElementById('output-area').textContent.trim();
+  if(!text || text.includes('在左侧填写')) return;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `个人陈述_${document.getElementById('target-school').value||'草稿'}.txt`;
+  a.click();
+}
+</script>
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

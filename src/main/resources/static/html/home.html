@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保研导航 · 主页</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+/* ── PC 全宽布局适配 ────────────────────────────────────────── */
+.home-body { display:flex; flex-direction:column; min-height:100vh; background:var(--bg); }
+
+/* ─ Hero：两栏，左文字右快速入口 ─ */
+.hero-section {
+  display:grid;
+  grid-template-columns: 1fr 340px;
+  gap:0;
+  background:var(--surface);
+  border-bottom: 0.5px solid var(--border);
+  max-width:100%;
+}
+.hero-left {
+  padding: 56px 48px 52px 60px;
+  border-right: 0.5px solid var(--border);
+}
+.hero-right {
+  padding: 36px 40px;
+  display:flex; flex-direction:column; gap:14px; justify-content:center;
+  background:var(--surface2);
+}
+.hero-eyebrow {
+  font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--purple-txt); background:var(--purple-bg);
+  display:inline-block; padding:3px 10px; border-radius:20px; margin-bottom:18px;
+}
+.hero-title {
+  font-size:clamp(30px, 3.5vw, 46px); font-weight:700; line-height:1.2;
+  color:var(--text); letter-spacing:-.03em; margin-bottom:14px;
+}
+.hero-title em { color:var(--purple-txt); font-style:normal; }
+.hero-sub {
+  font-size:14px; color:var(--text2); line-height:1.75; max-width:540px; margin-bottom:28px;
+}
+.hero-cta { display:flex; gap:10px; flex-wrap:wrap; }
+.hero-btn {
+  display:inline-flex; align-items:center; gap:6px; padding:10px 20px;
+  border-radius:var(--r-sm); font-size:13px; font-weight:600; cursor:pointer;
+  text-decoration:none; transition:all .15s; font-family:inherit;
+}
+.hero-btn.pri { background:var(--purple-txt); color:#fff; border:none; }
+.hero-btn.pri:hover { opacity:.88; transform:translateY(-1px); }
+.hero-btn.sec { background:var(--surface2); color:var(--text2); border:0.5px solid var(--border2); }
+.hero-btn.sec:hover { background:var(--surface3); color:var(--text); }
+
+/* ─ 右侧快速统计 ─ */
+.quick-stat {
+  display:flex; flex-direction:column; gap:3px;
+  padding:14px 16px; background:var(--surface);
+  border:0.5px solid var(--border); border-radius:var(--r); cursor:default;
+  transition: box-shadow .12s;
+}
+.quick-stat:hover { box-shadow:var(--shadow-sm); }
+.qs-num { font-size:26px; font-weight:700; letter-spacing:-.04em; color:var(--text); }
+.qs-lbl { font-size:11px; color:var(--text3); }
+.qs-sub { font-size:11px; color:var(--text3); margin-top:1px; }
+
+/* ─ 横向统计条 ─ */
+.stats-bar {
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.sbar-item {
+  padding:18px 0 18px 32px;
+  border-right: 0.5px solid var(--border);
+  display:flex; flex-direction:column; gap:4px;
+}
+.sbar-item:last-child { border-right:none; }
+.sbar-num { font-size:24px; font-weight:700; letter-spacing:-.04em; color:var(--text); }
+.sbar-lbl { font-size:11px; color:var(--text3); }
+
+/* ─ 模块网格区域（三栏） ─ */
+.modules-section { padding:36px 60px 52px; }
+.modules-header { margin-bottom:24px; display:flex; align-items:baseline; gap:14px; }
+.modules-header h2 { font-size:18px; font-weight:700; letter-spacing:-.02em; }
+.modules-header span { font-size:12px; color:var(--text3); }
+.modules-grid {
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:14px;
+}
+
+/* ─ 模块卡片 ─ */
+.mod-card {
+  background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg);
+  padding:24px; cursor:pointer; text-decoration:none; color:inherit;
+  display:flex; flex-direction:column; gap:12px;
+  transition:border-color .15s, box-shadow .15s, transform .15s;
+  position:relative; overflow:hidden;
+}
+.mod-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--accent, var(--purple-mid)); border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.mod-card:hover { border-color:var(--border2); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+.mod-card.blue  { --accent:var(--blue-mid); }
+.mod-card.green { --accent:var(--green-mid); }
+.mod-card.amber { --accent:var(--amber-mid); }
+.mod-card.teal  { --accent:var(--teal-mid); }
+.mod-card.coral { --accent:var(--coral-mid); }
+.mod-icon {
+  width:44px; height:44px; border-radius:10px; font-size:20px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--purple-bg); color:var(--purple-txt);
+}
+.mod-card.blue  .mod-icon { background:var(--blue-bg);  color:var(--blue-txt);  }
+.mod-card.green .mod-icon { background:var(--green-bg); color:var(--green-txt); }
+.mod-card.amber .mod-icon { background:var(--amber-bg); color:var(--amber-txt); }
+.mod-card.teal  .mod-icon { background:var(--teal-bg);  color:var(--teal-txt);  }
+.mod-card.coral .mod-icon { background:var(--coral-bg); color:var(--coral-txt); }
+.mod-title { font-size:15px; font-weight:700; }
+.mod-desc  { font-size:12px; color:var(--text2); line-height:1.65; flex:1; }
+.mod-tags  { display:flex; flex-wrap:wrap; gap:4px; }
+.mod-tag   { font-size:10px; padding:2px 8px; border-radius:20px; background:var(--surface2); color:var(--text3); border:0.5px solid var(--border); }
+.mod-arrow { font-size:16px; color:var(--text4); align-self:flex-end; transition:transform .15s, color .15s; }
+.mod-card:hover .mod-arrow { transform:translate(3px,-3px); color:var(--text2); }
+
+/* ─ 数据说明区 ─ */
+.info-strip {
+  background:var(--surface); border-top:0.5px solid var(--border);
+  border-bottom:0.5px solid var(--border); padding:24px 60px;
+}
+.info-strip-inner { display:grid; grid-template-columns:200px 1fr; gap:32px; align-items:start; }
+.info-strip-title { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding-top:2px; }
+.info-dots { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.info-row { display:flex; align-items:flex-start; gap:7px; font-size:12px; color:var(--text2); line-height:1.5; }
+.info-dot { width:5px; height:5px; border-radius:50%; background:var(--purple-mid); margin-top:5px; flex-shrink:0; }
+
+/* ─ Footer ─ */
+.site-footer {
+  padding:16px 60px; font-size:11px; color:var(--text3);
+  display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+  border-top:0.5px solid var(--border);
+}
+
+/* ── 响应式（平板 / 手机）──────────────────────────────────── */
+@media (max-width: 1100px) {
+  .hero-section { grid-template-columns: 1fr; }
+  .hero-right { display:none; }        /* 小屏隐藏右侧，用下方 stats-bar 替代 */
+  .hero-left { padding:40px 32px 36px; }
+  .modules-section { padding:28px 32px 44px; }
+  .modules-grid { grid-template-columns: repeat(2, 1fr); }
+  .info-strip { padding:20px 32px; }
+  .site-footer { padding:14px 32px; }
+  .sbar-item { padding:16px 24px; }
+}
+@media (max-width: 700px) {
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .modules-section { padding:20px 16px 36px; }
+  .modules-grid { grid-template-columns: 1fr; }
+  .info-strip { padding:16px; }
+  .info-strip-inner { grid-template-columns:1fr; gap:12px; }
+  .info-dots { grid-template-columns: 1fr; }
+  .site-footer { padding:14px 16px; }
+  .sbar-item { padding:14px 16px; }
+  .hero-left { padding:28px 16px 24px; }
+}
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+<div class="home-body">
+
+<!-- ── 顶部导航 ───────────────────────────────────────────── -->
+<nav class="topnav"></nav>
+
+<!-- ── Hero：左文右统计（PC 双栏，手机折叠） ──────────────── -->
+<section class="hero-section">
+  <div class="hero-left">
+    <div class="hero-eyebrow">CS 保研 · 预推免 · 2025</div>
+    <h1 class="hero-title">
+      985 / 211 <em>计算机保研</em><br>信息导航系统
+    </h1>
+    <p class="hero-sub">
+      整合院系强弱 com 数据、211 梯队分档、AI 导师推荐、教师信息爬取与
+      保研申请全流程工具，帮助你在预推免季高效决策、精准投递。
+    </p>
+    <div class="hero-cta">
+      <a class="hero-btn pri" href="/html/index.html">📊 浏览院校导航</a>
+      <a class="hero-btn sec" href="/html/advisor-match.html">🧑‍🏫 AI 导师匹配</a>
+      <a class="hero-btn sec" href="/html/tools.html">🛠 工具箱</a>
+    </div>
+  </div>
+
+  <!-- 右侧：快速数字（仅宽屏显示） -->
+  <div class="hero-right">
+    <a class="quick-stat" href="/html/index.html" style="text-decoration:none;color:inherit">
+      <div class="qs-num" id="qs-unis">50+</div>
+      <div class="qs-lbl">收录院校</div>
+      <div class="qs-sub">985 / 211 / 中科院</div>
+    </a>
+    <a class="quick-stat" href="/html/index.html" style="text-decoration:none;color:inherit">
+      <div class="qs-num">9</div>
+      <div class="qs-lbl">顶尖 C9</div>
+      <div class="qs-sub">清北浙交复南科哈西</div>
+    </a>
+    <a class="quick-stat" href="/html/analytics.html" style="text-decoration:none;color:inherit">
+      <div class="qs-num" id="qs-teachers">—</div>
+      <div class="qs-lbl">已爬取教师</div>
+      <div class="qs-sub">后端连接后更新</div>
+    </a>
+    <a class="quick-stat" href="/html/tools.html#tracker" style="text-decoration:none;color:inherit">
+      <div class="qs-num" id="qs-apps">0</div>
+      <div class="qs-lbl">我的申请</div>
+      <div class="qs-sub">本地存储</div>
+    </a>
+  </div>
+</section>
+
+<!-- ── 全宽统计条 ─────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="sbar-item">
+    <div class="sbar-num">50+</div>
+    <div class="sbar-lbl">收录院校（985 · 211 · 中科院）</div>
+  </div>
+  <div class="sbar-item">
+    <div class="sbar-num" id="sb-teachers">—</div>
+    <div class="sbar-lbl">爬取教师总数（需后端）</div>
+  </div>
+  <div class="sbar-item">
+    <div class="sbar-num">113</div>
+    <div class="sbar-lbl">985 / 211 院校覆盖率</div>
+  </div>
+  <div class="sbar-item">
+    <div class="sbar-num" id="sb-apps">0</div>
+    <div class="sbar-lbl">我的志愿申请（本地存储）</div>
+  </div>
+</div>
+
+<!-- ── 功能模块（三栏网格）────────────────────────────────── -->
+<div class="modules-section">
+  <div class="modules-header">
+    <h2>功能模块</h2>
+    <span>6 个核心工具，覆盖保研全流程</span>
+  </div>
+
+  <div class="modules-grid">
+
+    <a class="mod-card" href="/html/index.html">
+      <div class="mod-icon">📊</div>
+      <div class="mod-title">985 / 211 院校导航</div>
+      <div class="mod-desc">
+        浏览各院校 CS 院系强弱 com 分类、211 梯队分档，按省份 / 梯队过滤，
+        搜索教师信息，一键触发官网数据爬取。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">强弱 com</span>
+        <span class="mod-tag">C9 梯队</span>
+        <span class="mod-tag">211 分档</span>
+        <span class="mod-tag">教师爬取</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+    <a class="mod-card blue" href="/html/advisor-match.html">
+      <div class="mod-icon">🧑‍🏫</div>
+      <div class="mod-title">AI 导师匹配</div>
+      <div class="mod-desc">
+        填写研究方向、GPA、目标梯队，后端算法（TF-IDF 向量化 + 余弦相似度 + PageRank + 协同过滤）
+        推荐匹配度最高导师，无后端时显示模拟结果。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">TF-IDF</span>
+        <span class="mod-tag">余弦相似度</span>
+        <span class="mod-tag">PageRank</span>
+        <span class="mod-tag">协同过滤</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+    <a class="mod-card teal" href="/html/analytics.html">
+      <div class="mod-icon">📈</div>
+      <div class="mod-title">数据分析仪表盘</div>
+      <div class="mod-desc">
+        教师爬取统计、院校热度对比、CS 研究方向分布、近年趋势图。
+        后端未连接时展示静态参考数据。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">院校对比</span>
+        <span class="mod-tag">方向热力图</span>
+        <span class="mod-tag">趋势分析</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+    <a class="mod-card green" href="/html/tools.html#tracker">
+      <div class="mod-icon">📋</div>
+      <div class="mod-title">申请进度跟踪</div>
+      <div class="mod-desc">
+        看板视图管理目标院校，按「意向 → 报名 → 面试 → 录取」分列记录，
+        数据存本地 localStorage，无需登录。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">看板视图</span>
+        <span class="mod-tag">本地存储</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+    <a class="mod-card amber" href="/html/tools.html#email">
+      <div class="mod-icon">✉️</div>
+      <div class="mod-title">联系导师邮件生成</div>
+      <div class="mod-desc">
+        支持初次联系、夏令营意向、预推免确认三种场景，
+        填写信息后一键生成规范邮件正文，直接复制发送。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">多场景模板</span>
+        <span class="mod-tag">一键复制</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+    <a class="mod-card coral" href="/html/tools.html#gpa">
+      <div class="mod-icon">🔢</div>
+      <div class="mod-title">GPA / 排名换算</div>
+      <div class="mod-desc">
+        支持 4.0 / 4.3 / 5.0 / 百分制互转，
+        同时计算排名百分位和竞争力评级，
+        帮助判断背景与目标院校的匹配度。
+      </div>
+      <div class="mod-tags">
+        <span class="mod-tag">多制度换算</span>
+        <span class="mod-tag">竞争力评级</span>
+      </div>
+      <div class="mod-arrow">↗</div>
+    </a>
+
+  </div>
+</div>
+
+<!-- ── 数据来源说明条 ──────────────────────────────────────── -->
+<div class="info-strip">
+  <div class="info-strip-inner">
+    <div class="info-strip-title">数据来源说明</div>
+    <div class="info-dots">
+      <div class="info-row"><div class="info-dot"></div><span>985 强弱 com 来自小红书 @8052244911 图片整理</span></div>
+      <div class="info-row"><div class="info-dot"></div><span>211 分档数据来自公开排名图（顶级/中上/中流/中下/末流）</span></div>
+      <div class="info-row"><div class="info-dot"></div><span>院系链接为已知官网域名，随时可能变更</span></div>
+      <div class="info-row"><div class="info-dot"></div><span>教师数据由后端爬虫实时抓取（需启动 Spring Boot）</span></div>
+      <div class="info-row"><div class="info-dot"></div><span>强弱 com 每年可能调整，以当年官方通知为准</span></div>
+      <div class="info-row"><div class="info-dot"></div><span>申请记录、GPA 数据仅本地存储，不上传服务器</span></div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <span>985/211 CS 保研导航 v3.0</span>
+  <span style="color:var(--border2)">·</span>
+  <span>后端：Spring Boot 3 + SQLite + OkHttp + Jsoup</span>
+  <span style="color:var(--border2)">·</span>
+  <span>启动后端：<code style="background:var(--surface2);padding:1px 7px;border-radius:3px;font-size:10px">mvn spring-boot:run</code></span>
+  <span style="color:var(--border2)">·</span>
+  <span>前端：纯 HTML/CSS/JS，无框架</span>
+</footer>
+
+</div>
+
+<script>
+(async function(){
+  // 读本地申请数
+  try{
+    const n=JSON.parse(localStorage.getItem('baoyan_apps')||'[]').length;
+    ['qs-apps','sb-apps'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=n; });
+  }catch(_){}
+
+  // 后端检测
+  try{
+    const r=await fetch('http://localhost:8080/api/teachers/stats',{signal:AbortSignal.timeout(2500)});
+    if(!r.ok) throw new Error();
+    const d=await r.json();
+    const el=document.getElementById('api-status');
+    if(el){ el.textContent='✅ 后端已连接'; el.classList.add('ok'); }
+    if(d.totalTeachers){
+      ['qs-teachers','sb-teachers'].forEach(id=>{
+        const e=document.getElementById(id);
+        if(e) e.textContent=d.totalTeachers.toLocaleString();
+      });
+    }
+  }catch(_){
+    const el=document.getElementById('api-status');
+    if(el){ el.textContent='⚠ 后端未连接'; el.classList.add('warn'); }
+  }
+})();
+</script>
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

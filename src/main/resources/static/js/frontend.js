@@ -8,6 +8,16 @@
 let UNIS = [];
 let UNIV_META = {};
 
+// ── 后端 API 配置 & 运行时状态 ──────────────────────────────
+// 必须在任何【会被顶层 init() 触发的函数】之前声明，否则 const/let 处于
+// 暂时性死区(TDZ)，init() 在脚本顶层执行时(早于原 547 行)会抛
+// "Cannot access 'API_BASE' before initialization"。
+const API_BASE = "http://localhost:8080/api";
+let apiAvailable = false;
+let teacherCache = {};
+let statsCache = null;
+const scrapingInProgress = new Set(); // 记录已触发过按需爬取的院校，避免重复触发
+
 // ── 梯队颜色映射 ─────────────────────────────────────────────
 const TM={
   "顶尖C9":   {bg:"var(--purple-bg)",txt:"var(--purple-txt)",dot:"var(--purple-mid)"},
@@ -83,6 +93,7 @@ async function loadDataFromApi() {
       if (!Array.isArray(u.xhs)) u.xhs = [];
     });
     console.log(`✅ 从 API 加载: ${UNIS.length} 所985 + ${Object.keys(UNIV_META).length} 所211`);
+    apiAvailable = true;  // ★ 数据加载成功即表示后端可用
     return true;
   } catch (e) {
     console.warn("⚠ API 数据加载失败:", e.message, "— 页面需要后端运行");
@@ -330,7 +341,7 @@ function _openPBase(u){
 
   const xhsHtml=u.xhs.map(k=>`<span class="xkw">${k}</span>`).join("");
   const bingLinks=u.xhs.slice(0,2).map(k=>
-    `<a href="https://www.bing.com/search?q=${encodeURIComponent("site:xiaohongshu.com "+k)}&setlang=zh-CN" target="_blank" style="font-size:11px;color:var(--blue-txt);display:block;margin-top:4px">→ Bing搜「${k}」</a>`
+    `<a href="https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(k)}" target="_blank" style="font-size:11px;color:var(--blue-txt);display:block;margin-top:4px">→ 小红书搜「${k}」</a>`
   ).join("");
 
   document.getElementById("pc").innerHTML=`
@@ -374,6 +385,9 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeP();});
 
 // ★ 异步启动：先从 API 加载数据，再渲染
 (async function init() {
+  // 仅在「院校导航」index 页运行（只有该页有 #grid）。
+  // analytics.html 等其它页面也引入了本文件，但没有这些元素，直接跳过避免报错。
+  if (!document.getElementById("grid")) return;
   await checkApi();
   const loaded = await loadDataFromApi();
   if (!loaded) {
@@ -392,8 +406,9 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeP();});
   render();
 })();
 
-/* Enter 键在搜索框无结果时触发爬取 */
-document.getElementById("sb").addEventListener("keydown", e => {
+/* Enter 键在搜索框无结果时触发爬取（仅 index 页有 #sb，其它页面跳过） */
+const _sbEl = document.getElementById("sb");
+if (_sbEl) _sbEl.addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   const q = e.target.value.trim();
   if (!q) return;
@@ -456,7 +471,7 @@ async function triggerSearchScrape(univName, homepage) {
   } catch (_) {}
 
   // 轮询：每 8s 检查一次，最多 23 次（~3 分钟）
-  const ok = await pollScrapeResult(univName, (count, attempt, max, done, active) => {
+  const ok = await pollScrapeResult(univName, (count, attempt, max, done, active, d) => {
     const prog = document.getElementById(`scrape-progress-${cssEscape(univName)}`);
     if (!prog) return;  // 用户已跳转到其它视图，静默终止
     if (done) {
@@ -464,7 +479,7 @@ async function triggerSearchScrape(univName, homepage) {
     } else if (!active && attempt >= 3) {
       prog.textContent = `⚠ 后台任务已结束但未爬到数据，请查看日志`;
     } else {
-      const elapsed = (attempt * 8);
+      const elapsed = (d && d.elapsedSeconds >= 0) ? d.elapsedSeconds : attempt * 8;
       prog.textContent = active
         ? `⟳ 爬取中…已 ${elapsed}s，暂发现 ${count} 位，继续等待…`
         : `⟳ 已等待 ${elapsed}s（第 ${attempt}/${max} 次检查），暂无数据…`;
@@ -488,18 +503,11 @@ async function triggerSearchScrape(univName, homepage) {
       const data = await r.json();
       const count = data.total || 0;
       if (count > 0) {
-        grid.innerHTML = `
-          <div class="empty">
-            <div class="scrape-status done" style="justify-content:center;display:inline-flex;gap:8px">
-              ✅ 已爬取到「${univName}」${count} 位教师
-            </div>
-            <div style="margin-top:8px;font-size:12px;color:var(--text3)">
-              可通过后端 API 查看：
-              <a href="${API_BASE}/teachers?university=${encodeURIComponent(univName)}"
-                 target="_blank" style="color:var(--blue-txt)">↗ 查看全部</a>
-            </div>
-          </div>`;
-        // 更新 API badge 计数
+        // ★ 直接拉取并渲染教师列表，不用再搜一遍
+        const tr = await fetch(`${API_BASE}/teachers?university=${encodeURIComponent(univName)}&limit=200`);
+        const td = tr.ok ? await tr.json() : null;
+        const teachers = td?.teachers || [];
+        renderTeachersInGrid(grid, univName, teachers);
         const badge = document.getElementById("api-badge");
         if (badge) {
           const s = await fetch(`${API_BASE}/teachers/stats`);
@@ -550,12 +558,8 @@ function cssEscape(s) { return encodeURIComponent(s).replace(/%/g, "_"); }
    动态教师数据。如果院校在数据库中无记录，则自动触发爬取。
    如果后端未启动，页面仍可完全离线使用。
 ══════════════════════════════════════════════════════════ */
-const API_BASE = "http://localhost:8080/api";
-let apiAvailable = false;
-let teacherCache = {};
-let statsCache   = null;
-// 记录已触发过按需爬取的院校，避免重复触发
-const scrapingInProgress = new Set();
+// API_BASE / apiAvailable / teacherCache / statsCache / scrapingInProgress
+// 已上移到文件顶部声明（修复 TDZ）。此处不再重复声明。
 
 /**
  * 轮询爬取结果。每 interval ms 检查一次教师数量，最多 maxAttempts 次。
@@ -574,17 +578,22 @@ async function pollScrapeResult(univName, onUpdate,
       const r = await fetch(
         `${API_BASE}/scrape/progress/${encodeURIComponent(univName)}`,
         { signal: AbortSignal.timeout(5000) });
-      if (r.ok) { const d = await r.json(); count = d.count || 0; active = !!d.active; }
-      else {
+      let respData = {};
+      if (r.ok) {
+        respData = await r.json();
+        count = respData.count || 0;
+        active = !!respData.active;
+      } else {
         // fallback: progress endpoint not available (old backend) — use teacher count
         const r2 = await fetch(
           `${API_BASE}/teachers?university=${encodeURIComponent(univName)}&limit=1`,
           { signal: AbortSignal.timeout(5000) });
         if (r2.ok) { const d2 = await r2.json(); count = d2.total || 0; active = true; }
       }
-    } catch (_) {}
-    if (count > 0) { onUpdate(count, attempt, maxAttempts, true, active); return true; }
-    onUpdate(count, attempt, maxAttempts, false, active);
+      // ★ 把完整响应数据作为第6参数传给 onUpdate，回调可读 elapsedSeconds
+      if (count > 0) { onUpdate(count, attempt, maxAttempts, true, active, respData); return true; }
+      onUpdate(count, attempt, maxAttempts, false, active, respData);
+    } catch (_) { onUpdate(count, attempt, maxAttempts, false, active, {}); }
     // Early-exit: if backend says done AND still 0 → no hope (not yet triggered or instant fail)
     if (!active && attempt >= 3) return false;
   }
@@ -675,34 +684,48 @@ async function injectTeachersIntoPanel(univName) {
   section.className = "sec";
   section.style.marginTop = "16px";
 
-  // 查询 DB 是否有数据
-  let hasData = false, count = 0;
+  // ★ 查询后端状态（含 active 字段），不依赖内存中的 scrapingInProgress
+  //   这样页面切换回来后仍能正确恢复「爬取中」状态
+  let hasData = false, count = 0, backendActive = false, elapsedSec = -1;
   try {
     const r = await fetch(`${API_BASE}/scrape/status/${encodeURIComponent(univName)}`,
       { signal: AbortSignal.timeout(3000) });
-    if (r.ok) { const d = await r.json(); hasData = d.hasData; count = d.count || 0; }
+    if (r.ok) {
+      const d = await r.json();
+      hasData = d.hasData;
+      count   = d.count || 0;
+      backendActive = !!d.active;
+      elapsedSec    = d.elapsedSeconds ?? -1;
+    }
   } catch (_) {}
 
+  // 同步内存状态（后端 active → 本地 Set）
+  if (backendActive) scrapingInProgress.add(univName);
+  else scrapingInProgress.delete(univName);
+
   if (hasData) {
-    // 有数据，直接展示
+    // 有数据，直接展示；若同时还在爬，传 active=true 让标题显示「N+」
     const teachers = await loadTeachersForUniversity(univName);
     if (teachers.length) {
-      renderTeachersInSection(section, univName, teachers);
+      renderTeachersInSection(section, univName, teachers, backendActive);
       const btnRow = panelContent.querySelector(".btn-row");
       if (btnRow) panelContent.insertBefore(section, btnRow);
       else panelContent.appendChild(section);
+      // 有数据且还在爬 → 继续在后台轮询，等爬完后刷新数字
+      if (backendActive) continuePanelPoll(univName, section);
     }
     return;
   }
 
-  // 无数据：显示手动爬取按钮，不自动触发
-  const isActive = scrapingInProgress.has(univName);
+  // 无数据：根据后端 active 决定显示「爬取中」还是「手动触发」按钮
+  const elapsedLabel = (backendActive && elapsedSec >= 0)
+    ? `已爬 ${elapsedSec}s` : '';
   section.innerHTML = `
     <div class="sec-lbl">教师数据（来自 API）</div>
-    ${isActive
+    ${backendActive
       ? `<div class="scrape-status running">
            <span class="spin">⟳</span>
-           <span id="panel-scrape-msg">后台正在爬取「${univName}」，请稍候…</span>
+           <span id="panel-scrape-msg">后台正在爬取「${univName}」${elapsedLabel ? '，' + elapsedLabel : ''}，请稍候…</span>
          </div>`
       : `<div class="scrape-status" style="flex-direction:column;align-items:flex-start;gap:8px">
            <span style="color:var(--text2)">暂无「${univName}」教师数据</span>
@@ -726,15 +749,24 @@ async function injectTeachersIntoPanel(univName) {
   if (btnRow) panelContent.insertBefore(section, btnRow);
   else panelContent.appendChild(section);
 
-  if (!isActive) {
+  if (!backendActive) {
     document.getElementById("panel-scrape-btn")?.addEventListener("click", () => {
       const hp = (document.getElementById("panel-hp-input")?.value || "").trim();
       startPanelScrape(univName, hp, section);
     });
   } else {
-    // 已在爬取中，继续轮询
+    // 后端仍在爬，继续轮询更新进度
     continuePanelPoll(univName, section);
   }
+}
+
+/** 从"已爬取"状态重新触发教师数据爬取 */
+function startPanelReScrape(univName) {
+  const section = document.getElementById("api-teachers-section");
+  if (!section) return;
+  delete teacherCache[univName];
+  scrapingInProgress.delete(univName); // 清除旧状态，允许重新触发
+  startPanelScrape(univName, "", section);
 }
 
 /** 从面板手动触发爬取 */
@@ -764,20 +796,23 @@ async function startPanelScrape(univName, homepage, section) {
 
 /** 轮询面板内进度，直到爬完或超时 */
 function continuePanelPoll(univName, section) {
-  pollScrapeResult(univName, async (count, attempt, max, done, active) => {
+  pollScrapeResult(univName, async (count, attempt, max, done, active, d) => {
     const sec = document.getElementById("api-teachers-section");
     if (!sec) return;
     if (done) {
       scrapingInProgress.delete(univName);
       delete teacherCache[univName];
       const teachers = await loadTeachersForUniversity(univName);
-      if (teachers.length > 0) renderTeachersInSection(sec, univName, teachers);
+      if (teachers.length > 0) renderTeachersInSection(sec, univName, teachers, false);
       return;
     }
     const msg = sec.querySelector("#panel-scrape-msg");
-    if (msg) msg.textContent = active
-      ? `爬取中（已 ${attempt * 8}s）… 暂发现 ${count} 位`
-      : `已等待 ${attempt * 8}s，第 ${attempt}/${max} 次检查…`;
+    if (msg) {
+      const elSec = (d && d.elapsedSeconds >= 0) ? d.elapsedSeconds : attempt * 8;
+      msg.textContent = active
+        ? `爬取中（已 ${elSec}s）… 暂发现 ${count} 位`
+        : `已等待 ${elSec}s，第 ${attempt}/${max} 次检查…`;
+    }
   }).then(found => {
     scrapingInProgress.delete(univName);
     if (!found) {
@@ -821,39 +856,459 @@ function openUnknownP(name, meta) {
     </div>
 
     <div class="btn-row">
-      <button class="pbtn" onclick="window.open('https://www.bing.com/search?q=${encodeURIComponent("site:xiaohongshu.com "+name+"保研")}','_blank')">
+      <button class="pbtn" onclick="window.open('https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(name+"保研")}','_blank')">
         → 小红书搜保研经验
       </button>
     </div>`;
   document.getElementById("ov").classList.add("open");
   injectTeachersIntoPanel(name);
+  injectSchoolInfoIntoPanel(name);
 }
 
-function renderTeachersInSection(section, univName, teachers) {
-  const rows = teachers.slice(0, 30).map(t => `
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;
-                border-bottom:0.5px solid var(--border);font-size:13px;">
-      <span style="font-weight:500;min-width:60px">${t.name || ""}</span>
-      <span style="color:var(--text3);font-size:11px;min-width:50px">${t.title || ""}</span>
-      <span style="color:var(--text2);font-size:11px;flex:1">${(t.researchAreas || "").slice(0, 40)}</span>
-      ${t.profileUrl ? `<a href="${t.profileUrl}" target="_blank"
-          style="font-size:11px;color:var(--blue-txt);white-space:nowrap">↗ 主页</a>` : ""}
+/**
+ * 多关键词搜索引擎
+ *
+ * 语法（可组合）：
+ *   空格          AND  — 机器学习 深度学习     两个词都要有
+ *   |             OR   — 机器学习|深度学习     含任一
+ *   -             NOT  — -副教授              不含"副教授"
+ *   "词"          精确 — "教授"               独立出现的"教授"，不匹配"副教授"
+ *   name:         字段 — name:周              仅搜姓名
+ *   title:        字段 — title:"教授"  或  title: "教授"   职称精确（不含副教授）
+ *   area:         字段 — area:NLP  或  area: NLP          仅搜研究方向
+ *   （冒号后可加空格，title: "教授" 与 title:"教授" 等价）
+ *
+ * 示例：
+ *   title:"教授"              正教授，但不含副教授、讲席教授
+ *   title:副教授              含"副教授"的职称（模糊）
+ *   area:机器学习 -副教授      研究机器学习且不是副教授
+ *   机器学习|NLP name:李       (机器学习 or NLP) 且 姓李
+ */
+function makeMatchFn(raw) {
+  const s = raw.trim().toLowerCase();
+  if (!s) return () => true;
+
+  function escRe(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  // ★ 统一字段分隔符：= 与 : 等价，冒号/等号后空格也容许
+  // title:"教授"  title: "教授"  title="教授"  title= "教授"  全部等价
+  const normalized = s.replace(/\b(name|title|area)[:=]\s*/g, '$1:');
+
+  // 解析 token（空格分割）
+  const rules = normalized.split(/\s+/).filter(Boolean).map(token => {
+    let negate = false;
+    let t = token;
+    if (t.startsWith('-') && t.length > 1) { negate = true; t = t.slice(1); }
+
+    let field = null;
+    const fm = t.match(/^(name|title|area):(.+)$/);
+    if (fm) { field = fm[1]; t = fm[2]; }
+
+    // ★ 支持 "词" 精确词边界匹配（不被汉字包围）
+    const orTerms = t.split('|').filter(Boolean).map(term => {
+      if (term.startsWith('"') && term.endsWith('"') && term.length > 2) {
+        const inner = escRe(term.slice(1, -1));
+        // 前后不是汉字才算匹配（汉字范围 \u4e00-\u9fff）
+        return { re: new RegExp(`(^|[^\\u4e00-\\u9fff])${inner}([^\\u4e00-\\u9fff]|$)`) };
+      }
+      return { str: term };
+    });
+
+    return { negate, field, orTerms };
+  });
+
+  return teacher => {
+    for (const rule of rules) {
+      const getText = f => {
+        if (f === 'name')  return (teacher.name  || '').toLowerCase();
+        if (f === 'title') return (teacher.title || '').toLowerCase();
+        if (f === 'area')  return (teacher.researchAreas || '').toLowerCase();
+        return [(teacher.name||''),(teacher.title||''),(teacher.researchAreas||'')]
+               .join(' ').toLowerCase();
+      };
+      const text = getText(rule.field);
+      const matched = rule.orTerms.some(term =>
+        term.re ? term.re.test(text) : text.includes(term.str)
+      );
+      if (rule.negate ? matched : !matched) return false;
+    }
+    return true;
+  };
+}
+
+/** 语法帮助弹层 HTML（grid / panel 两处复用） */
+function searchHelpHTML() {
+  const row = (code, desc) =>
+    `<tr><td style="color:var(--text3);padding:2px 8px 2px 0;white-space:nowrap;
+                    font-family:monospace;font-size:11px">${code}</td>
+         <td style="color:var(--text2);font-size:11px">${desc}</td></tr>`;
+  return `
+    <div style="background:var(--surface2);border:0.5px solid var(--border2);
+                border-radius:var(--r-sm);padding:10px 12px;margin:3px 0 6px;line-height:1.9">
+      <table style="width:100%;border-collapse:collapse">
+        ${row('机器学习 深度学习',  'AND — 两个词都要有')}
+        ${row('机器学习|深度学习',  'OR — 含任一')}
+        ${row('-副教授',            'NOT — 排除含"副教授"的')}
+        ${row('"教授"',             '精确 — 独立出现的"教授"，不匹配"副教授"')}
+        ${row('name:李',            '仅搜姓名')}
+        ${row('title:教授',         '仅搜职称（模糊，含副教授）')}
+        ${row('title:&quot;教授&quot;', '仅搜职称（精确，不含副教授）')}
+        ${row('area:NLP',           '仅搜研究方向')}
+      </table>
+      <div style="margin-top:5px;font-size:10px;color:var(--text3);line-height:1.7">
+        ✦ 可组合：<code>area:视觉 title:"教授"</code> &nbsp;·&nbsp;
+        <code>机器学习|NLP name:李</code> &nbsp;·&nbsp;
+        <code>-副教授 title:"教授"</code><br>
+        ✦ <code>:</code> 与 <code>=</code> 等价，后面加空格也可：<code>title:"教授"</code> / <code>title="教授"</code> / <code>title= "教授"</code>
+      </div>
+    </div>`;
+}
+
+/** 点击 ? 按钮切换语法帮助（inline onclick 调用） */
+function toggleSearchHelp(btn) {
+  const wrap = btn.closest('.sh-wrap');
+  if (!wrap) return;
+  const box = wrap.querySelector('.sh-box');
+  if (!box) return;
+  const opening = box.style.display === 'none' || !box.style.display;
+  box.style.display = opening ? 'block' : 'none';
+  btn.style.background = opening ? 'var(--purple-bg)' : '';
+  btn.style.color      = opening ? 'var(--purple-txt)' : '';
+  btn.style.borderColor= opening ? 'var(--purple-mid)' : '';
+}
+
+/** 在搜索结果 grid 里直接渲染教师列表（带搜索框） */
+function renderTeachersInGrid(grid, univName, teachers) {
+  grid.innerHTML = "";
+
+  // 顶部信息栏
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "grid-column:1/-1;";
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+      <div class="scrape-status done" style="flex:none">✅ 「${univName}」${teachers.length} 位教师</div>
+      <div class="sh-wrap" style="flex:1;min-width:180px">
+        <div style="display:flex;align-items:center;gap:5px">
+          <input class="grid-tf" type="text"
+            placeholder="空格=AND  |=OR  -=排除  title:  area:  name:"
+            style="flex:1;padding:6px 12px;border:0.5px solid var(--border2);
+                   border-radius:var(--r-sm);background:var(--surface);color:var(--text);
+                   font-size:13px;outline:none;">
+          <button onclick="toggleSearchHelp(this)" title="搜索语法"
+            style="flex:none;width:22px;height:22px;border-radius:50%;
+                   border:0.5px solid var(--border2);background:transparent;
+                   color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;transition:all .12s">?</button>
+        </div>
+        <div class="sh-box" style="display:none">${searchHelpHTML()}</div>
+      </div>
     </div>
-  `).join("");
+    <div class="grid-tlist"></div>`;
+  wrap._allTeachers = teachers;
+  grid.appendChild(wrap);
+
+  function renderRows(list) {
+    const el = wrap.querySelector(".grid-tlist");
+    if (!el) return;
+    el.innerHTML = list.length === 0
+      ? `<div style="color:var(--text3);font-size:13px;padding:12px 0">没有匹配结果</div>`
+      : list.map(t => `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;
+                    border-bottom:0.5px solid var(--border);font-size:13px;">
+          <span style="font-weight:600;min-width:64px">${t.name || ""}</span>
+          <span style="color:var(--text3);font-size:11px;min-width:52px">${t.title || ""}</span>
+          ${t.recruiting ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;
+            background:var(--green-bg);color:var(--green-txt);flex:none;white-space:nowrap">招生</span>` : ""}
+          ${t.labName ? `<span style="font-size:10px;color:var(--text3);flex:none;max-width:80px;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.labName}">🔬${t.labName}</span>` : ""}
+          <span style="color:var(--text2);font-size:12px;flex:1">${(t.researchAreas || "").slice(0, 80)}</span>
+          ${t.profileUrl ? `<a href="${t.profileUrl}" target="_blank"
+              style="font-size:11px;color:var(--blue-txt);white-space:nowrap;flex:none">↗ 主页</a>` : ""}
+        </div>`).join("");
+  }
+
+  renderRows(teachers);
+
+  wrap.querySelector(".grid-tf").addEventListener("input", e => {
+    const raw = e.target.value.trim();
+    const all = wrap._allTeachers || [];
+    if (!raw) { renderRows(all); return; }
+    const matchFn = makeMatchFn(raw.toLowerCase());
+    renderRows(all.filter(t => matchFn(t)));
+  });
+}
+
+/** 在详情面板中渲染教师列表（带搜索框） */
+function renderTeachersInSection(section, univName, teachers, isActive) {
+  // ★ 把 teachers 挂在 section 元素上，避免闭包失效
+  section._allTeachers = teachers;
+
+  // isActive=true 表示爬虫仍在运行，显示「N+」和「爬取中」标注
+  const countLabel = isActive
+    ? `${teachers.length}+ <span style="font-size:10px;padding:1px 6px;border-radius:8px;`
+      + `background:var(--amber-bg,#fffbeb);color:var(--amber-txt,#8a6000);margin-left:2px">爬取中…</span>`
+    : `${teachers.length}`;
 
   section.innerHTML = `
-    <div class="sec-lbl">已爬取教师（来自 API · ${teachers.length} 位）</div>
-    <div class="scrape-status done" style="margin-bottom:8px">✅ 数据已就绪</div>
-    ${rows}
-    ${teachers.length > 30 ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">
-      还有 ${teachers.length - 30} 位，访问
-      <a href="${API_BASE}/teachers?university=${encodeURIComponent(univName)}"
-         target="_blank" style="color:var(--blue-txt)">API</a> 查看全部</div>` : ""}
-  `;
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="sec-lbl" style="margin:0">已爬取教师（${countLabel} 位）</div>
+        <button id="teacher-collapse-btn" onclick="(function(btn){
+          var body=document.getElementById('teacher-body');
+          var collapsed=body.style.display==='none';
+          body.style.display=collapsed?'block':'none';
+          btn.textContent=collapsed?'▾ 收起':'▸ 展开';
+        })(this)" style="font-size:11px;padding:1px 8px;border-radius:var(--r-sm);
+          border:0.5px solid var(--border2);background:transparent;color:var(--text3);
+          cursor:pointer;transition:all .12s">▸ 展开</button>
+      </div>
+      <button onclick="startPanelReScrape('${univName}')" title="重新爬取该校教师数据" style="
+        font-size:11px;padding:2px 9px;border-radius:var(--r-sm);
+        border:0.5px solid var(--border2);background:transparent;color:var(--text3);
+        cursor:pointer;transition:all .12s" onmouseover="this.style.color='var(--text)'"
+        onmouseout="this.style.color='var(--text3)'">↻ 重新爬取</button>
+    </div>
+    <div id="teacher-body" style="display:none">
+    <div class="sh-wrap">
+      <div style="display:flex;align-items:center;gap:5px;margin:0 0 3px">
+        <input class="panel-tf" type="text"
+          placeholder="空格=AND  |=OR  -=排除  title:  area:  name:"
+          style="flex:1;padding:6px 10px;
+                 border:0.5px solid var(--border2);border-radius:var(--r-sm);
+                 background:var(--surface);color:var(--text);font-size:12px;outline:none;">
+        <button onclick="toggleSearchHelp(this)" title="搜索语法"
+          style="flex:none;width:20px;height:20px;border-radius:50%;
+                 border:0.5px solid var(--border2);background:transparent;
+                 color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;transition:all .12s">?</button>
+      </div>
+      <div class="sh-box" style="display:none">${searchHelpHTML()}</div>
+    </div>
+    <div class="panel-tlist"></div>
+    </div>`;
+
+  function renderRows(list) {
+    // ★ 每次从 section 里重新找，不缓存引用
+    const el = section.querySelector(".panel-tlist");
+    if (!el) return;
+    el.innerHTML = list.length === 0
+      ? `<div style="color:var(--text3);font-size:12px;padding:8px 0">没有匹配结果</div>`
+      : list.map(t => `
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;
+                    border-bottom:0.5px solid var(--border);font-size:13px;">
+          <span style="font-weight:500;min-width:60px">${t.name || ""}</span>
+          <span style="color:var(--text3);font-size:11px;min-width:50px">${t.title || ""}</span>
+          ${t.recruiting ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;
+            background:var(--green-bg);color:var(--green-txt);flex:none">招生</span>` : ""}
+          ${t.labName ? `<span style="font-size:10px;color:var(--text3);flex:none;max-width:70px;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.labName}">🔬${t.labName}</span>` : ""}
+          <span style="color:var(--text2);font-size:11px;flex:1">${(t.researchAreas || "").slice(0, 60)}</span>
+          ${t.profileUrl ? `<a href="${t.profileUrl}" target="_blank"
+              style="font-size:11px;color:var(--blue-txt);white-space:nowrap">↗ 主页</a>` : ""}
+        </div>`).join("");
+  }
+
+  renderRows(teachers);
+
+  section.querySelector(".panel-tf").addEventListener("input", e => {
+    const raw = e.target.value.trim();
+    const all = section._allTeachers || [];
+    if (!raw) { renderRows(all); return; }
+    const matchFn = makeMatchFn(raw.toLowerCase());
+    renderRows(all.filter(t => matchFn(t)));
+  });
 }
 
 /* openP — 打开院校详情面板并注入教师数据 */
 function openP(u) {
   _openPBase(u);
   injectTeachersIntoPanel(u.name);
+  injectSchoolInfoIntoPanel(u.name);
+}
+
+/** ★ NEW: 在面板中渲染实验室 / 通知 / 招生计划 */
+async function injectSchoolInfoIntoPanel(univName) {
+  if (!apiAvailable) return;
+  const panelContent = document.getElementById("pc");
+  const existing = document.getElementById("api-school-info-section");
+  if (existing) existing.remove();
+
+  let items = [];
+  try {
+    const r = await fetch(
+      `${API_BASE}/school-info?university=${encodeURIComponent(univName)}`,
+      { signal: AbortSignal.timeout(5000) });
+    if (r.ok) { const d = await r.json(); items = d.items || []; }
+  } catch (_) { return; }
+  if (!items.length) {
+    const section = document.createElement("div");
+    section.id = "api-school-info-section";
+    section.className = "sec";
+    section.style.marginTop = "16px";
+    section.innerHTML = `
+      <div class="sec-lbl">实验室 / 通知 / 招生计划</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:7px">
+        暂无该校实验室/通知数据，可触发爬取（约 5-10 分钟）
+      </div>
+      <button onclick="startInfoScrape('${univName}')" style="
+        width:100%;padding:7px;text-align:center;border-radius:var(--r-sm);
+        border:0.5px solid var(--border2);background:transparent;color:var(--text2);
+        font-size:12px;cursor:pointer">↓ 爬取实验室 / 通知 / 招生计划</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px;text-align:center">
+        爬取结果永久保存，重复爬取只追加新数据
+      </div>`;
+    panelContent.appendChild(section);
+    return;
+  }
+
+  const catLabel = { lab:'实验室/课题组', notice:'招生通知', plan:'导师招生计划', camp:'夏令营' };
+  const catColor = {
+    lab:    { bg:'var(--blue-bg)',   txt:'var(--blue-txt)' },
+    notice: { bg:'var(--amber-bg)',  txt:'var(--amber-txt)' },
+    plan:   { bg:'var(--purple-bg)', txt:'var(--purple-txt)' },
+    camp:   { bg:'var(--green-bg)',  txt:'var(--green-txt)' },
+  };
+
+  // 按类别分组
+  const groups = {};
+  items.forEach(it => { (groups[it.category] = groups[it.category] || []).push(it); });
+
+  const section = document.createElement("div");
+  section.id = "api-school-info-section";
+  section.className = "sec";
+  section.style.marginTop = "16px";
+
+  let html = `<div class="sec-lbl">实验室 / 通知 / 招生计划</div>`;
+
+  for (const [cat, list] of Object.entries(groups)) {
+    const cl = catColor[cat] || { bg:'var(--surface2)', txt:'var(--text2)' };
+    html += `<div style="font-size:11px;font-weight:600;color:${cl.txt};
+                         background:${cl.bg};border-radius:5px;padding:3px 8px;
+                         margin:8px 0 4px;display:inline-block">
+               ${catLabel[cat] || cat}（${list.length}）</div>`;
+    list.slice(0, 8).forEach(it => {
+      let extra = {};
+      try { extra = JSON.parse(it.extraJson || '{}'); } catch(_) {}
+      const badges = [
+        extra.deadline ? `<span style="font-size:10px;color:var(--coral-txt)">截止:${extra.deadline}</span>` : '',
+        extra.quota    ? `<span style="font-size:10px;color:var(--green-txt)">名额:${extra.quota}人</span>` : '',
+        extra.gpaReq   ? `<span style="font-size:10px;color:var(--blue-txt)">GPA≥${extra.gpaReq}</span>` : '',
+        extra.recruiting === true ? `<span style="font-size:10px;background:var(--green-bg);color:var(--green-txt);padding:1px 5px;border-radius:4px">招生中</span>` : '',
+        extra.pi       ? `<span style="font-size:10px;color:var(--text3)">PI:${extra.pi}</span>` : '',
+      ].filter(Boolean).join(' ');
+      html += `
+        <div style="padding:5px 0;border-bottom:0.5px solid var(--border)">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <a href="${it.url}" target="_blank"
+               style="font-size:12px;color:var(--text);flex:1;line-height:1.4">${it.title}</a>
+            ${it.url ? `<a href="${it.url}" target="_blank"
+               style="font-size:11px;color:var(--blue-txt);white-space:nowrap;flex:none">↗</a>` : ''}
+          </div>
+          ${badges ? `<div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">${badges}</div>` : ''}
+          ${it.snippet ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;
+            line-height:1.4;max-height:2.8em;overflow:hidden">${it.snippet.slice(0,100)}…</div>` : ''}
+        </div>`;
+    });
+  }
+
+  // 触发爬取按钮（若无数据可再爬）
+  html += `
+    <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button onclick="startInfoScrape('${univName}')" style="
+        padding:6px 14px;border-radius:var(--r-sm);white-space:nowrap;
+        border:0.5px solid var(--border2);background:transparent;color:var(--text2);
+        font-size:12px;cursor:pointer">↻ 重新爬取实验室/通知数据</button>
+      <span style="font-size:11px;color:var(--text3)">只追加新数据，已有记录不受影响</span>
+    </div>`;
+
+  section.innerHTML = html;
+  panelContent.appendChild(section);
+}
+
+/** 触发实验室/通知爬取，带进度反馈 + 轮询结果（替代原 triggerInfoScrape） */
+async function startInfoScrape(univName) {
+  if (!apiAvailable) return;
+
+  const section = document.getElementById("api-school-info-section");
+  if (!section) return;
+
+  // 1. 立即把按钮换成进度条
+  section.innerHTML = `
+    <div class="sec-lbl">实验室 / 通知 / 招生计划</div>
+    <div class="scrape-status running" style="margin-top:8px;flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="spin">⟳</span>
+        <span>已触发「${univName}」实验室/通知爬取，后台运行中…</span>
+      </div>
+      <div id="info-scrape-msg" style="font-size:11px;color:inherit;opacity:.8">
+        正在后台爬取，每 15 秒检查一次结果（最多 10 分钟）…
+      </div>
+      <div style="font-size:11px;color:var(--green-txt,#2e7d32);margin-top:2px">
+        ✓ 本次爬取只追加新数据，已有记录不受影响
+      </div>
+    </div>`;
+
+  // 2. 发请求
+  try {
+    await fetch(`${API_BASE}/scrape/info`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ universities: [univName] }),
+    });
+  } catch (_) {
+    const sec = document.getElementById("api-school-info-section");
+    if (sec) sec.innerHTML = `
+      <div class="sec-lbl">实验室 / 通知 / 招生计划</div>
+      <div class="scrape-status error">⚠ 触发失败，请检查后端连接</div>
+      <button onclick="startInfoScrape('${univName}')" style="
+        margin-top:8px;width:100%;padding:7px;border-radius:var(--r-sm);
+        border:0.5px solid var(--border2);background:transparent;color:var(--text2);
+        font-size:12px;cursor:pointer">↺ 重试</button>`;
+    return;
+  }
+
+  // 3. 轮询 /api/school-info，每 15s 一次，最多 40 次（≈10 分钟）
+  let attempt = 0;
+  const maxAttempts = 40;
+  const timer = setInterval(async () => {
+    attempt++;
+    const sec = document.getElementById("api-school-info-section");
+    if (!sec) { clearInterval(timer); return; } // 面板已关闭
+
+    const msg = sec.querySelector("#info-scrape-msg");
+    if (msg) msg.textContent = `已等待约 ${attempt * 15}s，第 ${attempt}/${maxAttempts} 次检查…`;
+
+    try {
+      const r = await fetch(
+        `${API_BASE}/school-info?university=${encodeURIComponent(univName)}`,
+        { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.items && d.items.length > 0) {
+          clearInterval(timer);
+          // ✅ 有数据了，重新渲染整个区块
+          sec.remove();
+          injectSchoolInfoIntoPanel(univName);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // 超时处理
+    if (attempt >= maxAttempts) {
+      clearInterval(timer);
+      const s = document.getElementById("api-school-info-section");
+      if (!s) return;
+      s.innerHTML = `
+        <div class="sec-lbl">实验室 / 通知 / 招生计划</div>
+        <div class="scrape-status error" style="margin-top:8px">
+          ⚠ 10 分钟内未获取到「${univName}」数据，可能官网结构无法解析，
+          请查阅 <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">output/scraper.log</code>
+        </div>
+        <button onclick="startInfoScrape('${univName}')" style="
+          margin-top:8px;width:100%;padding:7px;border-radius:var(--r-sm);
+          border:0.5px solid var(--border2);background:transparent;color:var(--text2);
+          font-size:12px;cursor:pointer">↺ 重试</button>`;
+    }
+  }, 15000);
 }

@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 模拟面试 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+.iv-layout{display:grid;grid-template-columns:240px 1fr;gap:0;height:calc(100vh - 48px);overflow:hidden}
+/* 左侧题库 */
+.q-sidebar{border-right:.5px solid var(--border);background:var(--surface);display:flex;flex-direction:column;overflow:hidden}
+.cat-header{padding:6px 16px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:5px;user-select:none;margin-top:4px}
+.cat-header:hover{color:var(--text2)}
+.cat-arrow{font-size:8px;transition:transform .15s;flex-shrink:0}
+.cat-arrow.open{transform:rotate(90deg)}
+.cat-count{margin-left:auto;font-size:10px;font-weight:400;color:var(--purple-mid)}
+.cat-items{overflow:hidden;transition:max-height .2s ease}
+.cat-items.collapsed{max-height:0!important}
+mark{background:var(--amber-bg,#fffbeb);border-radius:2px;padding:0 1px;color:inherit}
+.sidebar-head{padding:14px 16px 10px;border-bottom:.5px solid var(--border);font-size:13px;font-weight:700}
+.cat-list{overflow-y:auto;flex:1;padding:4px 0}
+.cat-item{padding:7px 16px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+.q-item{padding:8px 16px;font-size:12px;color:var(--text2);cursor:pointer;border-left:3px solid transparent;transition:all .12s;line-height:1.4}
+.q-item:hover{background:var(--surface2);color:var(--text1)}
+.q-item.active{background:var(--purple-bg);border-left-color:var(--purple-mid);color:var(--purple-txt);font-weight:500}
+.q-done::after{content:'✓';float:right;color:var(--green-txt,#1a7a3a);font-weight:700}
+/* 右侧主区 */
+.iv-main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.q-header{padding:16px 24px 14px;border-bottom:.5px solid var(--border);background:var(--surface)}
+.q-meta{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;align-items:center;gap:10px}
+.q-text{font-size:15px;font-weight:700;line-height:1.5}
+.q-hint{font-size:11px;color:var(--text3);margin-top:5px;font-style:italic}
+.timer-badge{background:var(--amber-bg,#fffbeb);color:var(--amber-txt,#8a6000);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.answer-area{flex:1;overflow-y:auto;padding:16px 24px}
+/* 语音控制条 */
+.voice-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.btn-record{width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;font-size:20px;transition:all .15s;background:var(--surface2);color:var(--text2);flex-shrink:0}
+.btn-record.listening{background:#ff4444;color:#fff;animation:pulse 1s infinite}
+.btn-record.processing{background:var(--amber-mid,#f0c030);color:#4a3800}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,.4)}50%{box-shadow:0 0 0 8px rgba(255,68,68,0)}}
+.voice-mode-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:auto}
+.toggle-sw{width:36px;height:20px;border-radius:10px;background:var(--border2);position:relative;transition:background .2s}
+.toggle-sw.on{background:var(--purple-mid,#7c4dff)}
+.toggle-sw::after{content:'';width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s}
+.toggle-sw.on::after{left:18px}
+.voice-status{font-size:11px;color:var(--text3);flex-shrink:0}
+.waveform{display:flex;align-items:center;gap:2px;height:24px;flex-shrink:0}
+.wave-bar{width:3px;border-radius:2px;background:var(--purple-mid,#7c4dff);transition:height .1s}
+/* 语音设置 */
+.voice-settings{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:none}
+.voice-settings.show{display:block}
+.settings-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text2)}
+.settings-row select,.settings-row input[type=range]{font-size:12px;border:1px solid var(--border2);border-radius:5px;padding:3px 8px;background:var(--surface2);color:var(--text1);outline:none}
+/* 答案输入框 */
+.answer-textarea{width:100%;box-sizing:border-box;min-height:130px;resize:vertical;border:1px solid var(--border2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;background:var(--surface);color:var(--text1);outline:none;transition:border-color .15s}
+.answer-textarea:focus{border-color:var(--purple-mid)}
+.answer-actions{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-ai{background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-ai:hover{opacity:.88}.btn-ai:disabled{opacity:.5;cursor:not-allowed}
+.btn-skip{background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer}
+.btn-rand{background:var(--amber-bg,#fffbeb);color:var(--amber-txt,#8a6000);border:1px solid var(--amber-mid,#f0c030);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer}
+.word-count{font-size:11px;color:var(--text3);margin-left:auto}
+/* AI 反馈 */
+.feedback-box{margin-top:14px;background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12px;line-height:1.9;display:none}
+.feedback-head{font-size:11px;font-weight:700;color:var(--purple-txt);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.btn-speak{background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--text2)}
+.btn-speak.playing{background:var(--purple-bg);border-color:var(--purple-mid);color:var(--purple-txt)}
+.btn-speak:hover{background:var(--surface2)}
+/* 底部状态 */
+.status-bar{padding:9px 24px;border-top:.5px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text3);flex-shrink:0}
+.progress-pill{background:var(--purple-bg);color:var(--purple-txt);padding:2px 9px;border-radius:16px;font-size:10px;font-weight:600}
+@media(max-width:800px){.iv-layout{grid-template-columns:1fr;height:auto}.q-sidebar{height:180px;border-right:none;border-bottom:.5px solid var(--border)}}
+.sub-tab{background:none;border:none;padding:10px 18px;font-size:13px;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.sub-tab.active{color:var(--purple-mid);border-bottom-color:var(--purple-mid);font-weight:600}
+.sub-tab:hover{color:var(--text1)}
+.field-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:7px;padding:8px 11px;font-size:12px;background:var(--surface2);color:var(--text1);outline:none}
+.field-input:focus{border-color:var(--purple-mid)}
+#panel-stats{padding:24px;overflow-y:auto;background:var(--bg);display:none}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+.stats-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:16px 18px}
+.stats-card-title{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.stats-bar-wrap{background:var(--surface2);border-radius:4px;height:8px;overflow:hidden;margin-top:6px}
+.stats-bar-fill{height:100%;border-radius:4px;background:var(--purple-mid,#7c4dff);transition:width .4s}
+/* Markdown 渲染样式 */
+.md-render{font-size:12.5px;line-height:1.85;color:var(--text1)}
+.md-render p{margin:5px 0}
+.md-render h4{font-size:13px;font-weight:700;color:var(--purple-mid,#7c4dff);margin:12px 0 4px}
+.md-render ul,.md-render ol{margin:5px 0;padding-left:20px}
+.md-render li{margin:3px 0}
+.md-render strong{font-weight:700}
+.md-render em{font-style:italic;color:var(--text2)}
+.md-render .md-tip{color:var(--amber-txt,#8a6000);font-weight:600}
+</style>
+<script src="/js/core/nav.js"></script>
+<script src="/js/features/voice.js"></script>
+<script src="/js/core/auth.js"></script>
+</head>
+<body>
+<nav class="topnav"></nav>
+
+<!-- 子页面标签栏 -->
+<div style="border-bottom:.5px solid var(--border);background:var(--surface);padding:0 24px;display:flex;gap:0">
+  <button class="sub-tab active" id="tab-practice" onclick="switchTab('practice')">题库练习</button>
+  <button class="sub-tab" id="tab-stats" onclick="switchTab('stats')">练习统计</button>
+  <button class="sub-tab" id="tab-manage" onclick="switchTab('manage')">题库管理</button>
+</div>
+
+<div class="iv-layout" id="panel-practice">
+  <div class="q-sidebar">
+    <div class="sidebar-head">
+      题库
+      <span id="done-count" style="float:right;color:var(--green-txt,#1a7a3a);font-weight:400;font-size:11px">0/0 已练</span>
+    </div>
+    <div style="padding:6px 10px;border-bottom:.5px solid var(--border)">
+      <input id="q-search" type="text" placeholder="搜索题目或分类…"
+        oninput="onSearch(this.value)"
+        style="width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;
+               padding:5px 10px;font-size:11px;background:var(--surface2);color:var(--text1);outline:none">
+    </div>
+    <div class="cat-list" id="cat-list"></div>
+  </div>
+
+  <div class="iv-main">
+    <!-- 题目 -->
+    <div class="q-header">
+      <div class="q-meta">
+        <span id="q-meta">选择左侧题目开始练习</span>
+        <span class="timer-badge" id="timer" style="display:none">00:00</span>
+      </div>
+      <div class="q-text" id="q-text">👈 从左侧选一道题，或点「随机出题」</div>
+      <div class="q-hint" id="q-hint"></div>
+    </div>
+
+    <div class="answer-area">
+
+      <!-- 语音控制条 -->
+      <div class="voice-bar">
+        <button class="btn-record" id="btn-record" onclick="toggleRecord()" title="按住说话（或点击开始/停止）" disabled></button>
+        <div class="waveform" id="waveform">
+          <div class="wave-bar" style="height:4px"></div>
+          <div class="wave-bar" style="height:8px"></div>
+          <div class="wave-bar" style="height:4px"></div>
+          <div class="wave-bar" style="height:10px"></div>
+          <div class="wave-bar" style="height:6px"></div>
+          <div class="wave-bar" style="height:12px"></div>
+          <div class="wave-bar" style="height:4px"></div>
+        </div>
+        <span class="voice-status" id="voice-status">点麦克风开始语音答题</span>
+        <button onclick="document.getElementById('voice-settings').classList.toggle('show')"
+          style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3)" title="语音设置">⚙️</button>
+        <label class="voice-mode-toggle" title="开启后：录音结束自动提交，AI反馈自动朗读">
+          <span>面试模式</span>
+          <div class="toggle-sw" id="interview-mode-sw" onclick="toggleInterviewMode(this)"></div>
+        </label>
+      </div>
+
+      <!-- 语音设置（折叠） -->
+      <div class="voice-settings" id="voice-settings">
+        <div class="settings-row">
+          <label>AI音色：
+            <select id="sel-voice" onchange="updateVoice()">
+              <option value="longxiaochun">小淳（女·温柔）</option>
+              <option value="longwan">婉子（女·活泼）</option>
+              <option value="longcheng">程成（男·沉稳）</option>
+              <option value="longfei">龙飞（男·磁性）</option>
+              <option value="longxiaobai">小白（女·播报）</option>
+            </select>
+          </label>
+          <label>语速：
+            <input type="range" id="range-speed" min=".7" max="1.5" step=".1" value="1.1" style="width:80px"
+              oninput="document.getElementById('speed-val').textContent=this.value+'×'">
+            <span id="speed-val">1.1×</span>
+          </label>
+          <label>TTS引擎：
+            <select id="sel-engine">
+              <option value="aliyun">阿里云 CosyVoice（高音质）</option>
+              <option value="browser">浏览器内置（离线可用）</option>
+            </select>
+          </label>
+          <span id="tts-status" style="color:var(--green-txt,#1a7a3a)"></span>
+        </div>
+      </div>
+
+      <!-- 答案输入 -->
+      <textarea class="answer-textarea" id="answer-input"
+        placeholder="在此输入或语音录入你的回答…"
+        oninput="updateWordCount(this)"></textarea>
+
+      <div class="answer-actions">
+        <button class="btn-ai" id="feedback-btn" onclick="getAiFeedback()" disabled>AI 点评</button>
+        <button class="btn-rand" onclick="pickRandom()">随机出题</button>
+        <button class="btn-skip" onclick="markDone()">✓ 完成此题</button>
+        <span class="word-count" id="word-count">0 字</span>
+      </div>
+
+      <!-- AI 反馈 -->
+      <div class="feedback-box" id="feedback-box">
+        <div class="feedback-head">
+          AI 面试官点评
+          <button class="btn-speak" id="btn-speak" onclick="toggleSpeak()">🔊 朗读点评</button>
+          <span id="speak-status" style="font-size:10px;color:var(--text3)"></span>
+        </div>
+        <div id="feedback-content"></div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="status-text">从左侧选题或随机出题开始</span>
+      <span class="progress-pill" id="progress-pill">进度 0%</span>
+      <button onclick="clearProgress()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">清空进度</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api';
+const DONE_KEY = 'baoyan_interview_done';
+let profile = {}, currentQ = null, timerInterval = null, timerSec = 0;
+let doneSet = new Set(JSON.parse(localStorage.getItem(DONE_KEY)||'[]'));
+let interviewMode = false, currentAudio = null, currentUtterance = null;
+let lastDuration  = 0;   // 最近一次练习的用时（秒）
+let selectedVoice = 'longxiaochun', speechSpeed = 1.1;
+
+// ── 题库 ───────────────────────────────────────────────────────────
+let QUESTIONS = [
+  {id:'s1',cat:'自我介绍',text:'请用 2 分钟做一个完整的自我介绍。',hint:'结构：院校专业→成绩→核心科研→目标→选校理由'},
+  {id:'s2',cat:'自我介绍',text:'你的最大优势和劣势分别是什么？',hint:'优势结合科研；劣势真实但附改进措施'},
+  {id:'s3',cat:'自我介绍',text:'为什么选择保研而不是出国或工作？',hint:'体现对学术的规划，有说服力'},
+  {id:'s4',cat:'自我介绍',text:'你为什么对 XX 研究方向感兴趣？',hint:'结合具体课程/项目经历，避免空话'},
+  {id:'r1',cat:'科研经历',text:'介绍你最重要的科研经历，说明你的具体贡献。',hint:'STAR法：情境→任务→行动→结果，量化'},
+  {id:'r2',cat:'科研经历',text:'科研过程中遇到什么技术难题，怎么解决的？',hint:'展示问题解决能力，体现独立思考'},
+  {id:'r3',cat:'科研经历',text:'你的项目/论文的核心创新点是什么？有何局限？',hint:'客观分析，展示学术成熟度'},
+  {id:'r4',cat:'科研经历',text:'如果继续这个课题，你下一步会怎么做？',hint:'体现对领域的深度思考'},
+  {id:'k1',cat:'专业基础',text:'解释什么是过拟合，有哪些防止方法？',hint:'正则化、Dropout、数据增强、早停等'},
+  {id:'k2',cat:'专业基础',text:'梯度消失和梯度爆炸的原因及解决方法？',hint:'ReLU、BatchNorm、残差连接、梯度裁剪'},
+  {id:'k3',cat:'专业基础',text:'解释 Attention 机制原理，Transformer 为何能取代 RNN？',hint:'QKV，并行计算，长距离依赖'},
+  {id:'k4',cat:'专业基础',text:'什么是 RLHF？在大语言模型训练中起什么作用？',hint:'SFT→奖励模型→PPO，对齐人类偏好'},
+  {id:'cv1',cat:'计算机视觉',text:'ResNet 的核心贡献是什么？',hint:'梯度消失、退化问题，恒等映射学习'},
+  {id:'cv2',cat:'计算机视觉',text:'目标检测中 two-stage 和 one-stage 的区别？',hint:'Faster RCNN vs YOLO，精度vs速度'},
+  {id:'cv3',cat:'计算机视觉',text:'ViT 如何将 Transformer 应用到图像，有什么挑战？',hint:'patch embedding，需要大数据预训练'},
+  {id:'n1',cat:'自然语言处理',text:'BERT 和 GPT 的根本区别，各适合什么任务？',hint:'双向编码器 vs 单向生成器'},
+  {id:'n2',cat:'自然语言处理',text:'解释 RAG（检索增强生成）的工作原理。',hint:'向量检索+生成，减少幻觉'},
+  {id:'n3',cat:'自然语言处理',text:'大模型的 Prompt Engineering 有哪些技巧？',hint:'Zero/Few-shot, CoT, System prompt'},
+  {id:'sys1',cat:'系统/算法',text:'解释 CAP 定理，如何在分布式系统中权衡？',hint:'一致性/可用性/分区容错，只能保证两个'},
+  {id:'sys2',cat:'系统/算法',text:'快速排序的时间复杂度分析，最坏情况如何优化？',hint:'平均O(nlogn)，随机化pivot'},
+  {id:'sys3',cat:'系统/算法',text:'深度学习推理加速有哪些方法？',hint:'量化、剪枝、知识蒸馏、TensorRT'},
+  {id:'e1',cat:'英文问答',text:'Please briefly introduce your research experience in English.',hint:'2-3分钟，语速适中，核心成果说清楚'},
+  {id:'e2',cat:'英文问答',text:'What are your plans for future research?',hint:'结合目标导师方向，体现前瞻性'},
+  {id:'e3',cat:'英文问答',text:'Why did you choose this university and research group?',hint:'具体到导师论文/方向，不说空话'},
+  {id:'g1',cat:'综合素质',text:'介绍一篇最近让你印象深刻的论文。',hint:'背景→问题→方法→实验→启发'},
+  {id:'g2',cat:'综合素质',text:'如何平衡科研压力和生活？',hint:'展示抗压能力，真实但正面'},
+  {id:'g3',cat:'综合素质',text:'导师的研究方向与你的期望不一致，怎么处理？',hint:'沟通、适应、主动性'},
+  {id:'g4',cat:'综合素质',text:'你对未来五年的规划是什么？',hint:'目标明确，读研定位清晰（学术/工业）'},
+];
+
+// ── 语音识别 ──────────────────────────────────────────────────────
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, isRecording = false;
+
+function initSpeechRecognition(){
+  return VoiceRecorder.init({
+    button:   'btn-record',
+    statusEl: 'voice-status',
+    outputEl: 'answer-input',
+    timerEl:  'timer',
+    lang:     'zh-CN',
+    onResult: function(text) {
+      updateWordCount(document.getElementById('answer-input'));
+    },
+    onEnd: function(text) {
+      resetTimer();
+      // 面试模式：自动提交
+      if (interviewMode && text.trim().length > 10) {
+        setTimeout(getAiFeedback, 500);
+      }
+    },
+  });
+}
+
+/** 切换录音（直接委托给 VoiceRecorder，用 dataset 追踪状态，无竞态） */
+function toggleRecord(){
+  if (typeof VoiceRecorder === 'undefined') {
+    alert('语音模块加载失败，请刷新页面');
+    return;
+  }
+  VoiceRecorder.toggle();
+}
+
+function startRecording(){ VoiceRecorder.start(); }
+function stopRecording(){  VoiceRecorder.stop();  }
+function setVoiceStatus(msg){ document.getElementById('voice-status').textContent = msg; }
+
+// 波形动画（VoiceRecorder 内部已处理，此处保留兼容）
+let waveInterval = null;
+function startWaveAnimation(){
+  const bars = document.querySelectorAll('.wave-bar');
+  waveInterval = setInterval(()=>{
+    bars.forEach(b=>{ b.style.height = (4+Math.random()*18)+'px'; });
+  }, 80);
+}
+function stopWaveAnimation(){
+  clearInterval(waveInterval);
+  document.querySelectorAll('.wave-bar').forEach(b=>b.style.height='4px');
+}
+
+// ── 计时器 ────────────────────────────────────────────────────────
+function startTimer(){
+  timerSec = 0;
+  document.getElementById('timer').style.display = '';
+  timerInterval = setInterval(()=>{
+    timerSec++; lastDuration = timerSec;
+    const m = String(Math.floor(timerSec/60)).padStart(2,'0');
+    const s = String(timerSec%60).padStart(2,'0');
+    document.getElementById('timer').textContent = m+':'+s;
+    // 颜色提示
+    const t = document.getElementById('timer');
+    if      (timerSec < 120) t.style.background = 'var(--green-bg,#e8f5e9)';
+    else if (timerSec < 180) t.style.background = 'var(--amber-bg,#fffbeb)';
+    else                     t.style.background = '#fee2e2';
+  }, 1000);
+}
+function resetTimer(){
+  clearInterval(timerInterval); timerInterval = null; timerSec = 0;
+  document.getElementById('timer').style.display = 'none';
+  document.getElementById('timer').textContent = '00:00';
+}
+
+// ── 面试模式 ──────────────────────────────────────────────────────
+function toggleInterviewMode(sw){
+  interviewMode = !interviewMode;
+  sw.classList.toggle('on', interviewMode);
+  document.getElementById('status-text').textContent =
+    interviewMode ? '面试模式：录音→自动提交→AI自动朗读' : '手动模式';
+}
+
+// ── AI 语音点评（TTS）─────────────────────────────────────────────
+let isSpeaking = false;
+
+/**
+ * 去除 Markdown 符号，输出适合 TTS 朗读的纯文本。
+ * **bold** → bold，【章节】→ 章节，去掉 * # - 等语法符号。
+ */
+function stripMarkdown(text) {
+  return (text || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')   // **bold**
+    .replace(/\*([^*\n]+)\*/g, '$1')      // *italic*
+    .replace(/`([^`]+)`/g, '$1')          // `code`
+    .replace(/^#{1,6}\s+/gm, '')          // ## 标题
+    .replace(/^【([^】]+)】/gm, '$1：')   // 【章节】→ 章节：
+    .replace(/^[-*•]\s+/gm, '')           // 无序列表
+    .replace(/^\d+[.)]\s+/gm, '')         // 有序列表
+    .replace(/\n{3,}/g, '\n\n')           // 多空行→双空行
+    .trim();
+}
+
+async function speakText(text){
+  // 去除 Markdown 符号再朗读
+  const clean = stripMarkdown(text);
+  if (!clean) { console.warn('[TTS] 文本为空，跳过朗读'); return; }
+
+  const engine = document.getElementById('sel-engine').value;
+  if (engine === 'aliyun') {
+    try {
+      await speakAliyun(clean);
+      return;
+    } catch(e) {
+      console.warn('CosyVoice 失败，降级到浏览器 TTS:', e);
+      // 重置按钮状态后再走浏览器 TTS
+      isSpeaking = false;
+      document.getElementById('btn-speak').classList.remove('playing');
+    }
+  }
+  speakBrowser(clean);
+}
+
+async function speakAliyun(text){
+  // 再次防守：空文本直接跳过
+  if (!text || !text.trim()) throw new Error('文本为空');
+
+  const btn    = document.getElementById('btn-speak');
+  const status = document.getElementById('speak-status');
+  const speed  = parseFloat(document.getElementById('range-speed')?.value) || 1.1;
+
+  btn.classList.add('playing'); btn.textContent = '⏹ 停止朗读';
+  status.textContent = '合成中…';
+  isSpeaking = true;
+
+  const resp = await fetch(`${API}/speech/synthesize`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ text, voice: selectedVoice, speed, format:'mp3' })
+  });
+
+  if (!resp.ok) {
+    // 显示真实 HTTP 状态，不再硬编码 503
+    const hint = resp.status === 503 ? '（未配置 aliyun.api.key）'
+               : resp.status === 400 ? '（文本为空或格式错误）'
+               : '';
+    throw new Error(`CosyVoice HTTP ${resp.status} ${hint}`);
+  }
+
+  const blob = await resp.blob();
+  const url  = URL.createObjectURL(blob);
+  if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); }
+  currentAudio = new Audio(url);
+  status.textContent = '▶ 阿里云 CosyVoice';
+  currentAudio.play();
+  currentAudio.onended = () => {
+    isSpeaking = false;
+    btn.classList.remove('playing'); btn.textContent = '🔊 朗读点评';
+    status.textContent = ''; URL.revokeObjectURL(url);
+  };
+}
+
+function speakBrowser(text){
+  if (!window.speechSynthesis) { alert('此浏览器不支持语音合成，请使用 Chrome 或 Edge'); return; }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'zh-CN';
+  utter.rate = parseFloat(document.getElementById('range-speed')?.value) || 1.1;
+  const voices = window.speechSynthesis.getVoices();
+  const cnVoice = voices.find(v=>v.lang==='zh-CN' || v.lang==='zh-TW');
+  if(cnVoice) utter.voice = cnVoice;
+
+  const btn    = document.getElementById('btn-speak');
+  const status = document.getElementById('speak-status');
+  btn.classList.add('playing'); btn.textContent = '⏹ 停止朗读';
+  status.textContent = '▶ 浏览器内置 TTS'; isSpeaking = true;
+  currentUtterance = utter;
+  utter.onend = ()=>{
+    isSpeaking = false;
+    btn.classList.remove('playing'); btn.textContent = '🔊 朗读点评';
+    status.textContent = '';
+  };
+  window.speechSynthesis.speak(utter);
+}
+
+function toggleSpeak(){
+  if (isSpeaking) {
+    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime=0; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    isSpeaking = false;
+    document.getElementById('btn-speak').classList.remove('playing');
+    document.getElementById('btn-speak').textContent = '🔊 朗读点评';
+    document.getElementById('speak-status').textContent = '';
+    return;
+  }
+  // dataset.plain = 原始 AI 响应文本（含 Markdown 符号）
+  // textContent   = 渲染后的可见文本（已去 HTML 标签）
+  // 两者都经过 stripMarkdown 再朗读
+  const raw = document.getElementById('feedback-content').dataset.plain
+           || document.getElementById('feedback-content').textContent;
+  const clean = stripMarkdown(raw);
+  if (clean) speakText(clean);
+  else document.getElementById('speak-status').textContent = '没有可朗读的内容';
+}
+
+function updateVoice(){
+  selectedVoice = document.getElementById('sel-voice').value;
+}
+
+// ── 检测 TTS 可用性 ───────────────────────────────────────────────
+async function checkTtsAvailability(){
+  try{
+    const r = await fetch(`${API}/speech/voices`);
+    const d = await r.json();
+    const status = document.getElementById('tts-status');
+    if(d.configured){
+      status.textContent = '✅ 阿里云 CosyVoice 已连接';
+      status.style.color = 'var(--green-txt,#1a7a3a)';
+    } else {
+      status.textContent = '⚠️ 未配置 aliyun.api.key，使用浏览器 TTS';
+      document.getElementById('sel-engine').value = 'browser';
+    }
+  }catch(_){
+    document.getElementById('tts-status').textContent = '（后端未连接）';
+  }
+}
+
+// ── 题目选择 & 进度 ──────────────────────────────────────────────
+async function init(){
+  try{ profile = JSON.parse(localStorage.getItem('baoyan_profile')||'{}'); }catch(_){}
+  initSpeechRecognition();
+  checkTtsAvailability();
+  try{ await loadQuestionsFromApi(); }catch(e){ console.warn("[题库]", e.message); }
+  // 从服务端加载进度（与 localStorage 合并取并集）
+  try{
+    const r = await fetch(`${API}/user/progress`, {credentials:'same-origin'});
+    if(r.ok){
+      const d = await r.json();
+      (d.doneIds||[]).forEach(id => doneSet.add(id));
+      localStorage.setItem(DONE_KEY, JSON.stringify([...doneSet]));
+    }
+  }catch(_){}
+  renderSidebar();
+  updateProgress();
+  document.getElementById('feedback-btn').disabled = false;
+}
+
+async function loadQuestionsFromApi(){
+  try{
+    const r = await fetch(`${API}/interview/questions`);
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.questions && d.questions.length){
+      QUESTIONS = d.questions.map(q=>({
+        id:   'db' + q.id,
+        cat:  q.category,
+        text: q.question,
+        hint: q.hint || '',
+        dbId: q.id,
+        source: q.source,
+      }));
+
+      // 清理 doneSet 中不再有效的旧格式 ID（如 's1', 'r1' 等硬编码 ID）
+      // 保留 'db*' 格式且仍在题库中的 ID，其余全部移除
+      const validIds = new Set(QUESTIONS.map(q => q.id));
+      let changed = false;
+      for (const id of [...doneSet]) {
+        if (!validIds.has(id)) { doneSet.delete(id); changed = true; }
+      }
+      if (changed) {
+        localStorage.setItem(DONE_KEY, JSON.stringify([...doneSet]));
+        console.info('[题库] 已清理无效进度记录，ID 格式迁移完成');
+      }
+    }
+  }catch(e){ console.warn('[题库] 加载失败，使用内置题目:', e.message); }
+}
+
+// 回答草稿暂存：key = questionId | 'free'（未选题时）
+const answerDrafts = new Map();
+
+// 折叠状态（默认全部展开）
+const collapsedCats = new Set();
+
+// 当前搜索词
+let searchQuery = '';
+
+function onSearch(val){
+  searchQuery = val.trim().toLowerCase();
+  renderSidebar();
+}
+
+/** 高亮搜索词，截取上下文片段 */
+function hlText(text, q){
+  const safe = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  if(!q) return text.length>34 ? text.slice(0,34)+'…' : text;
+  const idx = text.toLowerCase().indexOf(q);
+  if(idx < 0) return text.length>34 ? text.slice(0,34)+'…' : text;
+  const s = Math.max(0, idx-8), e = Math.min(text.length, idx+q.length+16);
+  let excerpt = (s>0?'…':'') + text.slice(s,e) + (e<text.length?'…':'');
+  return excerpt.replace(new RegExp(safe,'gi'), m=>`<mark>${m}</mark>`);
+}
+
+function renderSidebar(){
+  const cats = [...new Set(QUESTIONS.map(q=>q.cat))];
+  const sq = searchQuery;
+
+  // 按搜索词过滤
+  const filtered = sq
+    ? QUESTIONS.filter(q =>
+        q.cat.toLowerCase().includes(sq) ||
+        q.text.toLowerCase().includes(sq) ||
+        (q.hint||'').toLowerCase().includes(sq))
+    : QUESTIONS;
+
+  // 按分类分组（保持原顺序）
+  const grouped = new Map();
+  cats.forEach(c => {
+    const qs = filtered.filter(q=>q.cat===c);
+    if(qs.length) grouped.set(c, qs);
+  });
+
+  if(!grouped.size){
+    document.getElementById('cat-list').innerHTML =
+      '<div style="padding:16px;font-size:12px;color:var(--text3)">没有匹配的题目</div>';
+    return;
+  }
+
+  document.getElementById('cat-list').innerHTML = [...grouped.entries()].map(([cat,qs])=>{
+    const doneN = qs.filter(q=>doneSet.has(q.id)).length;
+    // 搜索时强制展开
+    const isOpen = sq ? true : !collapsedCats.has(cat);
+    const estH = qs.length * 52;  // 估算展开高度（px），用于 CSS transition
+    return `
+      <div class="cat-header" onclick="toggleCat('${cat.replace(/'/g,"\\'")}')">
+        <span class="cat-arrow ${isOpen?'open':''}">▶</span>
+        ${cat}
+        <span class="cat-count">${doneN}/${qs.length}</span>
+      </div>
+      <div class="cat-items ${isOpen?'':'collapsed'}" style="max-height:${isOpen?estH+'px':'0'}">
+        ${qs.map(q=>`
+          <div class="q-item ${doneSet.has(q.id)?'q-done':''} ${currentQ?.id===q.id?'active':''}"
+               id="qi-${CSS.escape(q.id)}" onclick="selectQ('${q.id.replace(/'/g,"\\'")}')">
+            ${hlText(q.text, sq)}
+          </div>`).join('')}
+      </div>`;
+  }).join('');
+}
+
+function toggleCat(cat){
+  if(collapsedCats.has(cat)) collapsedCats.delete(cat);
+  else collapsedCats.add(cat);
+  renderSidebar();
+}
+
+function selectQ(id){
+  // ① 先把当前输入暂存
+  const curInput = document.getElementById('answer-input').value;
+  const draftKey = currentQ ? currentQ.id : 'free';
+  if(curInput.trim()) answerDrafts.set(draftKey, curInput);
+
+  currentQ = QUESTIONS.find(q=>q.id===id);
+  if(!currentQ) return;
+
+  resetTimer();
+  document.getElementById('q-meta').textContent =
+    `${currentQ.cat} · 第 ${QUESTIONS.indexOf(currentQ)+1}/${QUESTIONS.length} 题`;
+  document.getElementById('q-text').textContent = currentQ.text;
+  document.getElementById('q-hint').textContent = currentQ.hint ? '思路：'+currentQ.hint : '';
+
+  // ② 恢复此题的草稿（如果有）
+  const draft = answerDrafts.get(currentQ.id) || '';
+  document.getElementById('answer-input').value = draft;
+  document.getElementById('word-count').textContent =
+    draft.replace(/\s/g,'').length + ' 字';
+
+  // ③ 有草稿时不清空反馈框（让用户可以继续看之前的点评）
+  if(!draft){
+    document.getElementById('feedback-box').style.display = 'none';
+  }
+  document.getElementById('feedback-btn').disabled = false;
+  document.getElementById('status-text').textContent = '正在回答：'+currentQ.text.slice(0,30)+'…';
+
+  if(isSpeaking){ if(currentAudio) currentAudio.pause(); window.speechSynthesis?.cancel(); isSpeaking=false; }
+  renderSidebar();
+  if(interviewMode) setTimeout(startRecording, 500);
+}
+
+function pickRandom(){
+  const undone = QUESTIONS.filter(q=>!doneSet.has(q.id));
+  const pool = undone.length>0?undone:QUESTIONS;
+  selectQ(pool[Math.floor(Math.random()*pool.length)].id);
+}
+
+async function markDone(){
+  if(!currentQ) return;
+  const qid = currentQ.id;
+  doneSet.add(qid);
+  localStorage.setItem(DONE_KEY, JSON.stringify([...doneSet]));
+  // 先读取答案、点评、题目信息（切题前，pickRandom 会改变 currentQ）
+  const answer       = document.getElementById('answer-input').value.trim();
+  const feedback     = document.getElementById('feedback-content').dataset.plain
+                    || document.getElementById('feedback-content').textContent.trim()
+                    || '';
+  const savedQId     = currentQ ? String(currentQ.id)   : '';
+  const savedQText   = currentQ ? currentQ.text          : '';
+  const savedQCat    = currentQ ? currentQ.cat           : '自由练习';
+
+  // 切题、更新进度
+  updateProgress(); renderSidebar(); pickRandom();
+
+  // 同步服务端进度
+  try{
+    await fetch(`${API}/user/progress`, {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({questionId: qid})
+    });
+  }catch(_){}
+
+  // 保存练习记录（用切题前保存的题目信息）
+  if(answer){
+    console.log('[面试记录] 即将保存 题目:', savedQText.slice(0,20), '答案前50字:', answer.slice(0,50));
+    saveInterviewRecord(answer, feedback, savedQId, savedQText, savedQCat);
+  } else {
+    console.log('[面试记录] 答案为空，不保存（answer-input 为空）');
+  }
+}
+
+async function clearProgress(){
+  if(!confirm('清空所有练习进度？')) return;
+  doneSet.clear(); localStorage.removeItem(DONE_KEY);
+  updateProgress(); renderSidebar();
+  try{
+    await fetch(`${API}/user/progress`, {method:'DELETE', credentials:'same-origin'});
+  }catch(_){}
+}
+
+function updateProgress(){
+  const n=doneSet.size, total=QUESTIONS.length;
+  document.getElementById('done-count').textContent = n+'/'+total+' 已练';
+  document.getElementById('progress-pill').textContent = '进度 '+Math.round(n/total*100)+'%';
+}
+function updateWordCount(el){
+  document.getElementById('word-count').textContent = el.value.trim().replace(/\s/g,'').length+' 字';
+}
+
+// ── AI 点评 ───────────────────────────────────────────────────────
+async function getAiFeedback(){
+  // 修复：无题目时也允许点评（自由录音场景）
+  const answer = document.getElementById('answer-input').value.trim();
+  if(!answer){ alert('请先输入或录音回答'); return; }
+  // 确保按钮启用（防止未选题目时 disabled 仍在）
+  document.getElementById('feedback-btn').disabled = false;
+
+  const btn = document.getElementById('feedback-btn');
+  btn.disabled=true; btn.textContent='AI 评估中…';
+  const box = document.getElementById('feedback-box');
+  box.style.display='block';
+  document.getElementById('feedback-content').textContent='';
+
+  const systemPrompt = `你是985高校CS方向保研面试的资深面试官。
+学生背景：院校${profile.school||'未知'}，专业${profile.major||'未知'}，GPA ${profile.gpa||'?'}，前${profile.rankPct||'?'}%。
+请对以下面试回答做专业点评，格式：
+【总体】2句，指出亮点和核心不足
+【内容】逻辑结构、深度、案例支撑
+【表达】简洁性、术语使用
+【建议】3条可执行的具体建议
+【示范】给出更优回答的框架（勿代写全文）
+风格：直接专业，有建设性，不过度鼓励。`;
+
+  try{
+    const resp = await fetch(`${API}/chat`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        message: `${currentQ ? '面试题：'+currentQ.text+'\n\n' : ''}我的回答：${answer}`,
+        context: systemPrompt,
+        history: [],
+        selectedModel: null
+      })
+    });
+    const reader=resp.body.getReader(), decoder=new TextDecoder();
+    let buf='', fullText='';
+    const content = document.getElementById('feedback-content');
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf += decoder.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data:')) continue;
+        const raw=line.slice(5).trim();
+        try{
+          const ev=JSON.parse(raw);
+          const tok=ev.data||ev.content||ev.text||'';
+          if(tok){ fullText+=tok; content.textContent=fullText; }
+        }catch(_){
+          if(raw&&raw!=='[DONE]'){ fullText+=raw; content.textContent=fullText; }
+        }
+      }
+    }
+    // 流式完成后渲染 Markdown
+    if(fullText){
+      content.innerHTML = renderMarkdown(fullText);
+      content.dataset.plain = fullText;   // 存纯文本供 TTS 使用
+      // 自动保存练习记录（异步，不阻塞UI）
+      saveInterviewRecord(answer, fullText).catch(()=>{});
+    }
+    // 面试模式：自动朗读（用纯文本）
+    if(interviewMode && fullText) setTimeout(()=>speakText(fullText), 300);
+  }catch(e){
+    document.getElementById('feedback-content').textContent = '❌ 无法连接 AI（mvn spring-boot:run 已启动？）';
+  }finally{
+    btn.disabled=false; btn.textContent='AI 点评';
+  }
+}
+
+// ── Markdown 渲染器 ───────────────────────────────────────────────
+function renderMarkdown(text) {
+  // ── 预处理：把 AI 常用的行内列表拆成独立行 ───────────────────────
+  // ；-item  或  。-item  →  换行 + -item
+  text = text
+    .replace(/[；。]\s*(?=-\S)/g, '\n')   // ；-正则化  →  \n-正则化
+    .replace(/^[.·]\s+/gm, '- ');         // . 结构化回答  →  - 结构化回答
+
+  // ── 以下为原有渲染逻辑 ────────────────────────────────────────────
+  // 1. HTML 转义（防 XSS）
+  const esc = s => s
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // 行级渲染：bold / italic / inline-code
+  function inlineRender(line) {
+    return esc(line)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code style="background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:11px">$1</code>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  }
+
+  const lines   = text.split('\n');
+  const parts   = [];
+  let   inList  = false;
+  let   listOl  = false;
+
+  const closeList = () => {
+    if (inList) { parts.push(listOl ? '</ol>' : '</ul>'); inList = false; }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    // 空行
+    if (!line.trim()) { closeList(); parts.push('<br>'); continue; }
+
+    // 【章节标题】
+    if (/^【[^】]+】/.test(line)) {
+      closeList();
+      const rendered = line.replace(/^(【[^】]+】)(.*)$/,
+        (_, bracket, rest) =>
+          `<h4>${esc(bracket)}</h4>`
+          + (rest.trim() ? `<p>${inlineRender(rest.trim())}</p>` : '')
+      );
+      parts.push(rendered);
+      continue;
+    }
+
+    // ## / ### 标准 Markdown 标题
+    const hm = line.match(/^(#{1,4})\s+(.+)/);
+    if (hm) {
+      closeList();
+      const lvl = Math.min(hm[1].length + 3, 6);
+      parts.push(`<h${lvl}>${inlineRender(hm[2])}</h${lvl}>`);
+      continue;
+    }
+
+    // 有序列表：1. / .1. / 1)
+    const olm = line.match(/^[.•]?\s*(\d+)[.)]\s+(.+)/);
+    if (olm) {
+      if (!inList) { parts.push('<ol>'); inList = true; listOl = true; }
+      parts.push(`<li>${inlineRender(olm[2])}</li>`);
+      continue;
+    }
+
+    // 无序列表：- / * / •
+    const ulm = line.match(/^[-*•]\s*(.+)/);
+    if (ulm) {
+      if (!inList) { parts.push('<ul>'); inList = true; listOl = false; }
+      parts.push(`<li>${inlineRender(ulm[1])}</li>`);
+      continue;
+    }
+
+    // 普通段落
+    closeList();
+    parts.push(`<p>${inlineRender(line)}</p>`);
+  }
+
+  closeList();
+  return `<div class="md-render">${parts.join('')}</div>`;
+}
+
+// ── 题库管理 ──────────────────────────────────────────────────────
+let editingQId = null;
+const QAPI = 'http://localhost:8080/api/interview';
+
+async function renderManage(){
+  // 加载分类到 datalist
+  try{
+    const r = await fetch(`${QAPI}/categories`);
+    const d = await r.json();
+    document.getElementById('cat-datalist').innerHTML =
+      (d.categories||[]).map(c=>`<option value="${c}">`).join('');
+  }catch(_){}
+
+  // 加载全部题目
+  try{
+    const r = await fetch(`${QAPI}/questions?limit=500`);
+    const d = await r.json();
+    const qs = d.questions || [];
+    document.getElementById('q-total-badge').textContent = `共 ${qs.length} 题`;
+
+    // 按分类分组
+    const groups = {};
+    qs.forEach(q=>{ (groups[q.category]||(groups[q.category]=[])).push(q); });
+    // 记住各类别的折叠状态（默认展开）
+    if(!window._catCollapsed) window._catCollapsed = {};
+    document.getElementById('manage-list').innerHTML = Object.entries(groups).map(([cat,list])=>{
+      const catId = 'cat-' + encodeURIComponent(cat);
+      const collapsed = window._catCollapsed[cat] === true;
+      return `
+      <div style="margin-bottom:12px;background:var(--surface);border:.5px solid var(--border);border-radius:10px;overflow:hidden">
+        <!-- 类别标题栏：点击折叠，右侧类别全选 -->
+        <div style="display:flex;align-items:center;padding:10px 14px;cursor:pointer;user-select:none;background:var(--surface2)"
+             onclick="toggleCat('${encodeURIComponent(cat)}','${catId}')">
+          <span style="font-size:13px;font-weight:700;flex:1">
+            <span id="arrow-${catId}" style="display:inline-block;transition:transform .15s;margin-right:6px">${collapsed?'▶':'▼'}</span>
+            ${cat} <span style="color:var(--purple-mid);font-weight:400;font-size:12px">(${list.length}题)</span>
+          </span>
+          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer">
+            <input type="checkbox" class="cat-checkbox" data-cat="${encodeURIComponent(cat)}"
+                   style="width:14px;height:14px;cursor:pointer"
+                   onchange="onCatCheckboxChange(this,'${encodeURIComponent(cat)}')">
+            全选此类
+          </label>
+        </div>
+        <!-- 题目列表 -->
+        <div id="${catId}" style="display:${collapsed?'none':'block'};padding:8px 10px">
+          ${list.map(q=>`
+          <div style="background:var(--bg);border:.5px solid var(--border);border-radius:8px;
+                      padding:10px 14px;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px"
+               id="qcard-${q.id}">
+            <input type="checkbox" class="q-checkbox" data-id="${q.id}" data-cat="${encodeURIComponent(q.category)}"
+                   style="margin-top:3px;flex-shrink:0;cursor:pointer;width:15px;height:15px"
+                   onchange="onCheckboxChange()">
+            <div style="flex:1">
+              <div style="font-size:13px;line-height:1.5">${q.question}</div>
+              ${q.hint?`<div style="font-size:11px;color:var(--text3);margin-top:3px">提示：${q.hint}</div>`:''}
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">
+                ${q.source==='builtin'?'内置':'来源：'+q.source}
+              </div>
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0">
+              <button onclick="startEditQ(${q.id},'${encodeURIComponent(q.category)}','${encodeURIComponent(q.question)}','${encodeURIComponent(q.hint||'')}')"
+                style="background:none;border:1px solid var(--border2);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer">编辑</button>
+              <button onclick="deleteQ(${q.id})"
+                style="background:none;border:1px solid #d44;color:#d44;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer">删除</button>
+              <button onclick="useQNow(${q.id})"
+                style="background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-mid);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer"
+                title="切换到练习模式并选中此题">练习</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('manage-list').innerHTML =
+      `<div style="color:var(--text3);font-size:13px">加载失败（后端已启动？）：${e.message}</div>`;
+  }
+  // 每次重渲染后同步按钮状态（复选框全新未勾选，按钮应复位）
+  onCheckboxChange();
+}
+
+function showAddModal(){
+  editingQId = null;
+  document.getElementById('aq-cat').value = '';
+  document.getElementById('aq-text').value = '';
+  document.getElementById('aq-hint').value = '';
+  document.getElementById('aq-source').value = 'manual';
+  document.getElementById('add-q-title').textContent = '添加题目';
+  document.getElementById('aq-submit-btn').textContent = '保存';
+  document.getElementById('add-q-modal').style.display = '';
+}
+
+function startEditQ(id, cat, text, hint){
+  editingQId = id;
+  document.getElementById('aq-cat').value  = decodeURIComponent(cat);
+  document.getElementById('aq-text').value = decodeURIComponent(text);
+  document.getElementById('aq-hint').value = decodeURIComponent(hint);
+  document.getElementById('add-q-title').textContent = '编辑题目';
+  document.getElementById('aq-submit-btn').textContent = '更新';
+  document.getElementById('add-q-modal').style.display = '';
+  document.getElementById('aq-cat').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function hideAddModal(){
+  document.getElementById('add-q-modal').style.display = 'none';
+  editingQId = null;
+}
+
+async function submitAddQ(){
+  const cat  = document.getElementById('aq-cat').value.trim() || '自定义';
+  const text = document.getElementById('aq-text').value.trim();
+  const hint = document.getElementById('aq-hint').value.trim();
+  const src  = document.getElementById('aq-source').value;
+  if(!text){ alert('题目内容不能为空'); return; }
+
+  const url    = editingQId ? `${QAPI}/questions/${editingQId}` : `${QAPI}/questions`;
+  const method = editingQId ? 'PUT' : 'POST';
+
+  try{
+    const r = await fetch(url, {
+      method, headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({category:cat, question:text, hint, source:src})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    hideAddModal();
+    await loadQuestionsFromApi();
+    renderSidebar();
+    renderManage();
+  }catch(e){ alert('操作失败：'+e.message); }
+}
+
+async function deleteQ(id){
+  if(!confirm('确认删除这道题？')) return;
+  await fetch(`${QAPI}/questions/${id}`, {method:'DELETE'});
+  try{ await loadQuestionsFromApi(); }catch(e){ console.warn("[题库]", e.message); }
+  renderSidebar();
+  renderManage();
+}
+
+function toggleCat(catEnc, catId){
+  window._catCollapsed = window._catCollapsed || {};
+  const cat = decodeURIComponent(catEnc);
+  const el = document.getElementById(catId);
+  const arrow = document.getElementById('arrow-' + catId);
+  if(!el) return;
+  const collapsed = el.style.display === 'none';
+  el.style.display = collapsed ? 'block' : 'none';
+  if(arrow) arrow.style.transform = collapsed ? '' : 'rotate(-90deg)';
+  window._catCollapsed[cat] = !collapsed;
+}
+
+function onCatCheckboxChange(catBox, catEnc){
+  const checked = catBox.checked;
+  document.querySelectorAll(`.q-checkbox[data-cat="${catEnc}"]`)
+    .forEach(b => { b.checked = checked; });
+  onCheckboxChange();
+}
+
+function onCheckboxChange(){
+  const checked = document.querySelectorAll('.q-checkbox:checked');
+  const count = checked.length;
+  const delBtn = document.getElementById('btn-delete-selected');
+  const selAll = document.getElementById('btn-select-all');
+  document.getElementById('selected-count').textContent = count;
+  delBtn.style.display = count > 0 ? '' : 'none';
+  const total = document.querySelectorAll('.q-checkbox').length;
+  selAll.textContent = count === total && total > 0 ? '取消全选' : '全选';
+}
+
+function toggleSelectAll(){
+  const boxes = document.querySelectorAll('.q-checkbox');
+  const allChecked = [...boxes].every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+  onCheckboxChange();
+}
+
+async function deleteSelected(){
+  const checked = [...document.querySelectorAll('.q-checkbox:checked')];
+  if(!checked.length) return;
+  const ids = checked.map(b => parseInt(b.dataset.id));
+  if(!confirm(`确认删除选中的 ${ids.length} 道题？此操作不可撤销。`)) return;
+  try{
+    const r = await fetch(`${QAPI}/questions/batch`, {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ids})
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || '删除失败');
+    document.getElementById('import-result').textContent = d.message;
+    document.getElementById('import-result').style.display = '';
+    setTimeout(()=>{ document.getElementById('import-result').style.display='none'; }, 3000);
+    await loadQuestionsFromApi();
+    renderSidebar();
+    renderManage();
+    // 重置按钮状态（renderManage 重绘后复选框全新，需手动复位）
+    document.getElementById('btn-delete-selected').style.display = 'none';
+    document.getElementById('selected-count').textContent = '0';
+    document.getElementById('btn-select-all').textContent = '全选';
+  }catch(e){ alert('批量删除失败：'+e.message); }
+}
+
+function useQNow(dbId){
+  const q = QUESTIONS.find(q=>q.dbId===dbId);
+  if(q){ switchTab('practice'); selectQ(q.id); }
+}
+
+let _pendingImportFile = null;
+
+function onImportFileSelected(file){
+  if(!file) return;
+  _pendingImportFile = file;
+  document.getElementById('import-mode-filename').textContent = '文件：' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）';
+  document.querySelector('input[name="import-mode"][value="skip"]').checked = true;
+  const modal = document.getElementById('import-mode-modal');
+  modal.style.display = 'flex';
+}
+
+function closeImportModal(){
+  document.getElementById('import-mode-modal').style.display = 'none';
+  document.getElementById('import-file-input').value = '';
+  _pendingImportFile = null;
+}
+
+async function confirmImport(){
+  const mode = document.querySelector('input[name="import-mode"]:checked').value;
+  if(mode === 'replace_all' && !confirm('确认清空所有非内置题目后重新导入？此操作不可撤销。')) return;
+  document.getElementById('import-mode-modal').style.display = 'none';
+  await importQuestions(_pendingImportFile, mode);
+  _pendingImportFile = null;
+}
+
+async function importQuestions(file, mode='skip'){
+  if(!file) return;
+  const resultEl = document.getElementById('import-result');
+  resultEl.textContent = '导入中…'; resultEl.style.color = 'var(--text2)'; resultEl.style.display = '';
+  const fd = new FormData(); fd.append('file', file);
+  try{
+    const url = `${QAPI}/questions/import?mode=${mode}`;
+    const r = await fetch(url, {method:'POST', body:fd});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const msg = mode==='overwrite'
+      ? `导入完成：新增 ${d.imported} 题，更新 ${d.updated||0} 题`
+      : mode==='replace_all'
+      ? `替换完成：清空后导入 ${d.imported} 题`
+      : `成功导入 ${d.imported} 题（跳过 ${d.skipped||0} 题）`;
+    resultEl.textContent = msg;
+    resultEl.style.color = 'var(--green-txt,#1a7a3a)';
+    await loadQuestionsFromApi();
+    renderSidebar(); renderManage();
+  }catch(e){
+    resultEl.textContent = '导入失败：'+e.message;
+    resultEl.style.color = '#d44';
+  }
+  document.getElementById('import-file-input').value = '';
+  setTimeout(()=>{ resultEl.style.display='none'; }, 5000);
+}
+
+init();
+</script>
+<!-- 练习统计子页面 -->
+<div id="panel-stats">
+  <h2 style="font-size:16px;font-weight:700;margin:0 0 16px">练习统计</h2>
+  <div class="stats-grid" id="stats-grid"></div>
+  <div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700">各类别完成进度</div>
+      <button id="cat-progress-toggle" onclick="(function(btn){
+        var body=document.getElementById('cat-progress');
+        var collapsed=body.style.display==='none';
+        body.style.display=collapsed?'':'none';
+        btn.textContent=collapsed?'▾ 收起':'▸ 展开';
+      })(this)" style="font-size:11px;padding:2px 10px;border-radius:var(--r-sm,6px);
+        border:.5px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer">▾ 收起</button>
+    </div>
+    <div id="cat-progress"></div>
+  </div>
+  <!-- 练习历史记录 -->
+  <div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700">练习历史记录</div>
+      <button onclick="clearAllRecords()"
+              style="background:none;border:1px solid var(--border2);border-radius:6px;
+                     padding:4px 12px;font-size:11px;color:var(--text3);cursor:pointer">
+        清空记录
+      </button>
+    </div>
+    <div id="records-list"><div style="color:var(--text3);font-size:13px">加载中…</div></div>
+  </div>
+</div>
+
+<!-- 题库管理面板 -->
+<div id="panel-manage" style="display:none;padding:20px;background:var(--bg);overflow-y:auto">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <h2 style="font-size:15px;font-weight:700;margin:0">题库管理</h2>
+    <span id="q-total-badge" style="background:var(--purple-bg);color:var(--purple-txt);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600"></span>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button onclick="toggleSelectAll()"
+              id="btn-select-all"
+              style="background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">
+        全选
+      </button>
+      <button onclick="deleteSelected()"
+              id="btn-delete-selected"
+              style="display:none;background:#d44;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">
+        删除所选 (<span id="selected-count">0</span>)
+      </button>
+      <button onclick="showAddModal()" style="background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">+ 手动添加</button>
+      <button onclick="document.getElementById('import-file-input').click()" style="background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">上传文件</button>
+      <input type="file" id="import-file-input" accept=".csv,.txt,.json,.md,.docx,.pdf" style="display:none" onchange="onImportFileSelected(this.files[0])">
+      <!-- 导入模式选择弹窗 -->
+      <div id="import-mode-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center">
+        <div style="background:var(--surface);border-radius:14px;padding:28px 30px;width:420px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px">选择导入方式</div>
+          <div id="import-mode-filename" style="font-size:12px;color:var(--text3);margin-bottom:18px"></div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;border-radius:8px;border:1.5px solid var(--border2);transition:border-color .12s"
+                   onmouseover="this.style.borderColor='var(--purple-mid)'" onmouseout="this.style.borderColor='var(--border2)'">
+              <input type="radio" name="import-mode" value="skip" checked style="margin-top:2px">
+              <div>
+                <div style="font-size:13px;font-weight:600">跳过已存在（默认）</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px">相同题目内容的题不重复导入，新题正常添加</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;border-radius:8px;border:1.5px solid var(--border2);transition:border-color .12s"
+                   onmouseover="this.style.borderColor='var(--purple-mid)'" onmouseout="this.style.borderColor='var(--border2)'">
+              <input type="radio" name="import-mode" value="overwrite" style="margin-top:2px">
+              <div>
+                <div style="font-size:13px;font-weight:600">覆盖已存在</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px">相同题目内容的题更新 hint/category，新题正常添加</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;border-radius:8px;border:1.5px solid var(--border2);transition:border-color .12s"
+                   onmouseover="this.style.borderColor='var(--purple-mid)'" onmouseout="this.style.borderColor='var(--border2)'">
+              <input type="radio" name="import-mode" value="replace_all" style="margin-top:2px">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#d44">全部替换（清空后导入）</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px">删除所有非内置题目，仅保留本次导入的内容</div>
+              </div>
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="closeImportModal()" style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:8px 16px;font-size:13px;cursor:pointer">取消</button>
+            <button onclick="confirmImport()" style="background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">确认导入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:11px;color:var(--text3);margin-bottom:14px;background:var(--surface);border-radius:8px;padding:10px 14px">
+    支持上传：<b>CSV</b>（category,question,hint 三列）&nbsp;·&nbsp;<b>TXT / MD</b>（每行一题，[分类] 前缀区分类别）&nbsp;·&nbsp;<b>JSON</b>（数组，每项含 category/question/hint）&nbsp;·&nbsp;<b>DOCX / PDF</b>（提取文字后按 TXT 规则解析）<br>
+    从 AI 顾问对话中发现好题目时，也可以直接手动填入。
+  </div>
+
+  <!-- 添加/编辑 Modal -->
+  <div id="add-q-modal" style="display:none;background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px" id="add-q-title">添加题目</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">分类</div>
+        <input id="aq-cat" class="field-input" placeholder="如：自我介绍、专业基础" list="cat-datalist">
+        <datalist id="cat-datalist"></datalist>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">来源标注</div>
+        <select id="aq-source" class="field-input">
+          <option value="manual">手动添加</option>
+          <option value="ai_chat">来自 AI 顾问对话</option>
+          <option value="import">文件导入</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">题目内容 *</div>
+      <textarea id="aq-text" rows="2" class="field-input" placeholder="题目内容..." style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">思路提示（可选）</div>
+      <input id="aq-hint" class="field-input" placeholder="答题思路、关键词提示…">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="submitAddQ()" style="background:var(--purple-mid,#7c4dff);color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer" id="aq-submit-btn">保存</button>
+      <button onclick="hideAddModal()" style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer">取消</button>
+    </div>
+  </div>
+
+  <div id="import-result" style="font-size:12px;color:var(--green-txt,#1a7a3a);margin-bottom:12px;display:none"></div>
+
+  <!-- 题目列表 -->
+  <div id="manage-list"></div>
+</div>
+
+<script>
+// ── 子页面切换 ────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('panel-practice').style.display = tab==='practice' ? 'grid'  : 'none';
+  document.getElementById('panel-stats').style.display    = tab==='stats'    ? 'block' : 'none';
+  const mPanel = document.getElementById('panel-manage');
+  if(mPanel) mPanel.style.display = tab==='manage' ? 'block' : 'none';
+  document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'stats')  { renderStats(); loadRecordsAndRender(); }
+  if (tab === 'manage') renderManage();
+}
+
+// ── 保存练习记录到服务器 ────────────────────────────────────────
+async function saveInterviewRecord(answer, feedback, qId, qText, qCat) {
+  // qId/qText/qCat 由调用方传入，避免异步时 currentQ 已被切题覆盖
+  const questionId   = qId   !== undefined ? qId   : (currentQ ? String(currentQ.id)  : '');
+  const questionText = qText !== undefined ? qText : (currentQ ? currentQ.text         : '');
+  const category     = qCat  !== undefined ? qCat  : (currentQ ? currentQ.cat          : '自由练习');
+  try {
+    const r = await fetch(`${API}/interview/records`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        questionId:   questionId,
+        questionText: questionText,
+        category:     category,
+        answer:       answer,
+        feedback:     feedback,
+        duration:     lastDuration || 0,
+      })
+    });
+    if (r.ok) {
+      console.log('[面试记录] 保存成功');
+    } else {
+      const err = await r.text().catch(()=>'');
+      console.warn('[面试记录] 保存失败 HTTP', r.status, err);
+      if (r.status === 401) {
+        console.warn('[面试记录] 未登录，记录未保存');
+      }
+    }
+  } catch(e) {
+    console.error('[面试记录] 网络错误:', e.message);
+  }
+}
+
+// ── 加载练习历史记录 ──────────────────────────────────────────────
+async function loadRecords() {
+  try {
+    const r = await fetch(`${API}/interview/records`, { credentials: 'same-origin' });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d.records || [];
+  } catch(_) { return []; }
+}
+
+function renderRecords(records) {
+  const el = document.getElementById('records-list');
+  if (!el) return;
+  if (!records.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:16px 0">还没有练习记录。完成一道题并获取 AI 点评后，记录会自动保存在这里。</div>';
+    return;
+  }
+  el.innerHTML = records.map(r => `
+    <div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;
+                padding:14px 16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <span style="background:var(--purple-bg);color:var(--purple-txt);border-radius:4px;
+                       padding:1px 8px;font-size:11px;font-weight:600">${esc(r.category||'自由练习')}</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px">${r.createdAt ? r.createdAt.slice(0,16).replace('T',' ') : ''}</span>
+          ${r.duration ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">· ${formatDur(r.duration)}</span>` : ''}
+        </div>
+        <button onclick="deleteRecord(${r.id},this)"
+                style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px"
+                title="删除此记录">×</button>
+      </div>
+      ${r.questionText ? `<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">题目：${esc(r.questionText)}</div>` : ''}
+      ${r.answer ? `<details style="margin-bottom:6px">
+        <summary style="font-size:12px;color:var(--text3);cursor:pointer">我的回答</summary>
+        <div style="font-size:12px;color:var(--text1);margin-top:6px;white-space:pre-wrap;
+                    background:var(--surface2);border-radius:6px;padding:8px 10px">${esc(r.answer)}</div>
+      </details>` : ''}
+      ${r.feedback ? `<details open>
+        <summary style="font-size:12px;color:var(--purple-txt);cursor:pointer;font-weight:600">AI 点评</summary>
+        <div style="font-size:12px;color:var(--text1);margin-top:6px;line-height:1.7;
+                    background:var(--purple-bg);border-radius:6px;padding:8px 10px">${r.feedback}</div>
+      </details>` : ''}
+    </div>`).join('');
+}
+
+function formatDur(sec) {
+  if (!sec) return '';
+  const m = Math.floor(sec/60), s = sec%60;
+  return m ? `${m}分${s}秒` : `${s}秒`;
+}
+
+async function deleteRecord(id, btn) {
+  if (!confirm('删除此条练习记录？')) return;
+  try {
+    const r = await fetch(`${API}/interview/records/${id}`, {
+      method: 'DELETE', credentials: 'same-origin'
+    });
+    if (r.ok) {
+      btn.closest('div[style]').remove();
+    }
+  } catch(_) {}
+}
+
+async function clearAllRecords() {
+  if (!confirm('确认清空所有练习记录？此操作不可撤销。')) return;
+  try {
+    await fetch(`${API}/interview/records`, { method: 'DELETE', credentials: 'same-origin' });
+    loadRecordsAndRender();
+  } catch(_) {}
+}
+
+async function loadRecordsAndRender() {
+  const records = await loadRecords();
+  renderRecords(records);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderStats() {
+  const cats = [...new Set(QUESTIONS.map(q=>q.cat))];
+  const total = QUESTIONS.length, done = doneSet.size;
+
+  // 总览卡片
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stats-card">
+      <div class="stats-card-title">总完成题目</div>
+      <div style="font-size:28px;font-weight:700;color:var(--purple-mid)">${done}</div>
+      <div style="font-size:12px;color:var(--text3)">共 ${total} 题</div>
+      <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${Math.round(done/total*100)}%"></div></div>
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-title">练习完成率</div>
+      <div style="font-size:28px;font-weight:700;color:${done===total?'var(--green-txt)':'var(--amber-txt,#8a6000)'}">${Math.round(done/total*100)}%</div>
+      <div style="font-size:12px;color:var(--text3)">${done===total?'全部完成！':'还剩 '+(total-done)+' 题'}</div>
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-title">最薄弱类别</div>
+      ${(()=>{
+        const weak = cats.map(c => {
+          const qs = QUESTIONS.filter(q=>q.cat===c);
+          return {cat:c, pct: qs.filter(q=>doneSet.has(q.id)).length/qs.length};
+        }).sort((a,b)=>a.pct-b.pct)[0];
+        return weak ? `<div style="font-size:15px;font-weight:700">${weak.cat}</div>
+          <div style="font-size:12px;color:var(--text3)">${Math.round(weak.pct*100)}% 完成</div>` : '<div>—</div>';
+      })()}
+    </div>
+  `;
+
+  // 分类进度
+  document.getElementById('cat-progress').innerHTML = cats.map(cat => {
+    const qs = QUESTIONS.filter(q=>q.cat===cat);
+    const n = qs.filter(q=>doneSet.has(q.id)).length;
+    const pct = Math.round(n/qs.length*100);
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>${cat}</span>
+          <span style="color:var(--text3)">${n}/${qs.length}</span>
+        </div>
+        <div class="stats-bar-wrap">
+          <div class="stats-bar-fill" style="width:${pct}%;background:${pct===100?'var(--green-mid,#34a853)':'var(--purple-mid,#7c4dff)'}"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+</script>
+
+<script>
+(function(){
+  function init(){ if(typeof lucide!=="undefined") lucide.createIcons(); }
+  var s=document.createElement("script");
+  s.src="/js/lucide.min.js";
+  s.onload=init;
+  s.onerror=function(){
+    var c=document.createElement("script");
+    c.src="https://unpkg.com/lucide@0.513.0/dist/umd/lucide.min.js";
+    c.onload=init;
+    /* 两者都失败时 <i data-lucide> 被 CSS display:none 隐藏，不留空格 */
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

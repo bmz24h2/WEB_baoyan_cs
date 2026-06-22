@@ -1,4 +1,8 @@
-
+启动后端：mvn spring-boot:run
+演示（跑了后端之后）：cd C:\Users\lenovo\Desktop
+.\cloudflared-windows-amd64.exe tunnel --protocol http2 --url http://localhost:8080
+https://avoid-belle-tooth-corps.trycloudflare.com/html/login.html
+加上清理target文件夹：mvn clean spring-boot:run
 清理重复：Get-Content cleanup_duplicates.sql -Encoding UTF8 | sqlite3 output/faculty.db
 git使用：
 上传：git push -u origin main
@@ -9,3 +13,6 @@ git push
 
 删除： 
 git rm "XX.xx"
+
+
+启动网页：http://localhost:8080/html/login.html

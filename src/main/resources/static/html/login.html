@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · 保研导航</title>
+<link rel="stylesheet" href="/css/frontend.css">
+<style>
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-wrap{width:100%;max-width:380px;padding:0 20px}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo svg{display:block;margin:0 auto 10px;color:var(--purple-mid,#7c4dff)}
+.login-logo h1{font-size:20px;font-weight:800;margin:0 0 4px}
+.login-logo p{font-size:13px;color:var(--text3);margin:0}
+.login-card{background:var(--surface);border:.5px solid var(--border);border-radius:14px;
+  padding:24px 28px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+.tab-btns{display:flex;background:var(--surface2);border-radius:8px;padding:3px;margin-bottom:20px}
+.tab-btn{flex:1;border:none;background:none;border-radius:6px;padding:7px;font-size:13px;
+  cursor:pointer;color:var(--text3);transition:all .15s}
+.tab-btn.active{background:var(--surface);color:var(--text1);font-weight:600;
+  box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text3);margin-bottom:5px}
+.pwd-wrap{position:relative}
+.field input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:8px;
+  padding:10px 13px;font-size:13px;background:var(--surface2);color:var(--text1);
+  outline:none;transition:border-color .15s}
+.pwd-wrap input{padding-right:38px}
+.field input:focus{border-color:var(--purple-mid)}
+.eye-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;
+  display:flex;align-items:center;opacity:.7}
+.eye-btn:hover{opacity:1}
+.btn-submit{width:100%;background:var(--purple-mid,#7c4dff);color:#fff;border:none;
+  border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;
+  margin-top:4px;transition:opacity .15s}
+.btn-submit:hover{opacity:.88}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:10px;font-size:12px;text-align:center;min-height:18px;
+  border-radius:6px;padding:0 4px}
+.msg.error{color:#d44} .msg.ok{color:var(--green-txt,#1a7a3a)}
+/* 已登录卡片 */
+.logged-card{background:var(--surface);border:.5px solid var(--border);border-radius:14px;
+  padding:24px 28px;box-shadow:0 4px 24px rgba(0,0,0,.06);display:none}
+.user-avatar{width:56px;height:56px;border-radius:50%;background:var(--purple-bg);
+  color:var(--purple-mid);font-size:22px;font-weight:800;display:flex;align-items:center;
+  justify-content:center;margin:0 auto 12px;position:relative;overflow:hidden;flex-shrink:0}
+.logged-name{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px}
+.logged-sub{text-align:center;font-size:12px;color:var(--text3);margin-bottom:20px}
+.btn-continue{width:100%;background:var(--purple-mid,#7c4dff);color:#fff;border:none;
+  border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px}
+.btn-switch{width:100%;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:9px;font-size:13px;cursor:pointer;color:var(--text2)}
+.btn-switch:hover{background:var(--border2)}
+/* 分隔线 */
+.divider{display:flex;align-items:center;gap:8px;margin:16px 0;font-size:11px;color:var(--text3)}
+.divider::before,.divider::after{content:'';flex:1;height:.5px;background:var(--border)}
+/* 修改密码区 */
+.change-pwd{margin-top:14px;border-top:.5px solid var(--border);padding-top:14px;display:none}
+.change-pwd-toggle{font-size:12px;color:var(--text3);cursor:pointer;text-align:center;
+  display:block;margin-bottom:10px}
+.change-pwd-toggle:hover{color:var(--purple-mid)}
+.footer-note{text-align:center;margin-top:14px;font-size:11px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+    <h1>保研导航</h1>
+    <p>个人信息和练习进度自动保存到账号</p>
+  </div>
+
+  <!-- 已登录卡片 -->
+  <div class="logged-card" id="logged-card">
+    <!-- 头像（仅展示，不可上传） -->
+    <div class="user-avatar" id="logged-avatar">
+      <span id="avatar-letter"></span>
+      <img id="avatar-img" src="" alt=""
+           style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%">
+    </div>
+
+    <!-- 用户名（只读） -->
+    <div class="field" style="margin-top:16px">
+      <label>用户名</label>
+      <input type="text" id="logged-username-field" readonly
+             style="background:var(--surface2);color:var(--text2);cursor:default">
+    </div>
+
+    <!-- 密码（只读占位） -->
+    <div class="field">
+      <label>密码</label>
+      <div class="pwd-wrap">
+        <input type="password" value="••••••••" readonly
+               style="background:var(--surface2);color:var(--text3);cursor:default">
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                     font-size:10px;color:var(--green-txt,#1a7a3a)">已记住</span>
+      </div>
+    </div>
+
+    <button class="btn-continue" style="margin-top:4px" onclick="goHome()">继续使用</button>
+    <button class="btn-switch" onclick="showLoginForm()">切换账号</button>
+  </div>
+
+  <!-- 登录/注册表单 -->
+  <div class="login-card" id="login-card">
+    <div class="tab-btns">
+      <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">登录</button>
+      <button class="tab-btn" id="tab-reg" onclick="switchTab('register')">注册</button>
+    </div>
+
+    <!-- 登录表单 -->
+    <div id="form-login">
+      <div class="field">
+        <label>用户名</label>
+        <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username"
+               onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="login-password" placeholder="请输入密码"
+                 autocomplete="current-password"
+                 onkeydown="if(event.key==='Enter')doLogin()">
+          <button class="eye-btn" type="button" onclick="toggleEye('login-password',this)" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-submit" id="btn-login" onclick="doLogin()">登录</button>
+    </div>
+
+    <!-- 注册表单 -->
+    <div id="form-register" style="display:none">
+      <div class="field">
+        <label>用户名</label>
+        <input type="text" id="reg-username" placeholder="2-20 个字符，可含中文/字母/数字"
+               autocomplete="username">
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="reg-password" placeholder="至少 6 个字符"
+                 autocomplete="new-password">
+          <button class="eye-btn" type="button" onclick="toggleEye('reg-password',this)" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label>确认密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="reg-confirm" placeholder="再输一次密码"
+                 autocomplete="new-password"
+                 onkeydown="if(event.key==='Enter')doRegister()">
+          <button class="eye-btn" type="button" onclick="toggleEye('reg-confirm',this)" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-submit" id="btn-reg" onclick="doRegister()">注册并登录</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="footer-note">个人信息存储在本地服务器，不上传互联网</div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api';
+
+// ── 初始化：检查是否已登录 ──────────────────────────────────────
+(async function() {
+  try {
+    const r = await fetch(API + '/auth/whoami', { credentials: 'same-origin' });
+    if (r.ok) {
+      const d = await r.json();
+      document.getElementById('login-card').style.display  = 'none';
+      document.getElementById('logged-card').style.display = 'block';
+      // 用户名字段
+      document.getElementById('logged-username-field').value = d.username;
+      // 头像
+      setAvatar(d.avatar, d.username);
+    }
+    // 未登录（401）：默认显示登录表单，什么也不做
+  } catch(_) { /* 后端未启动，正常显示登录表单 */ }
+})();
+
+// ── 头像 ─────────────────────────────────────────────────────
+function setAvatar(b64, username) {
+  const letter = document.getElementById('avatar-letter');
+  const img    = document.getElementById('avatar-img');
+  if (b64 && b64.startsWith('data:image/')) {
+    img.src = b64; img.style.display = 'block'; letter.style.display = 'none';
+  } else {
+    letter.textContent  = (username || '?').charAt(0).toUpperCase();
+    letter.style.display = ''; img.style.display = 'none';
+  }
+}
+
+function triggerAvatarUpload() {
+  window.location.href = '/html/profile.html';
+}
+
+// 头像 hover 效果（点击跳转个人信息页上传头像）
+var _avatarEl = document.getElementById('logged-avatar');
+if (_avatarEl) {
+  _avatarEl.style.cursor = 'pointer';
+  _avatarEl.title = '前往个人信息页修改头像';
+  _avatarEl.addEventListener('click', function() {
+    window.location.href = '/html/profile.html';
+  });
+}
+
+async function uploadAvatar(file) {
+  if (!file) return;
+  if (file.size > 204800) { alert('图片不能超过 200KB'); return; }
+  // 压缩 & 转 base64
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 120;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = async () => {
+    // 居中裁剪成正方形
+    const s = Math.min(img.width, img.height);
+    const ox = (img.width  - s) / 2;
+    const oy = (img.height - s) / 2;
+    ctx.drawImage(img, ox, oy, s, s, 0, 0, 120, 120);
+    const b64 = canvas.toDataURL('image/jpeg', 0.85);
+    // 上传
+    try {
+      const r = await fetch(API + '/user/avatar', {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: b64 }),
+      });
+      if (r.ok) setAvatar(b64, document.getElementById('logged-username-field').value);
+      else alert('头像上传失败');
+    } catch(e) { alert('网络错误'); }
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+  document.getElementById('avatar-input').value = '';
+}
+
+// ── 已登录操作 ────────────────────────────────────────────────
+function goHome() {
+  const params = new URLSearchParams(window.location.search);
+  window.location.href = decodeURIComponent(params.get('next') || '/html/home.html');
+}
+
+function showLoginForm() {
+  // 切换账号：先登出再显示登录表单
+  fetch(API + '/auth/logout', { method:'POST', credentials:'same-origin' }).catch(()=>{});
+  document.getElementById('logged-card').style.display = 'none';
+  document.getElementById('login-card').style.display  = 'block';
+}
+
+// ── 修改密码 ─────────────────────────────────────────────────
+let changePwdOpen = false;
+function toggleChangePwd() {
+  changePwdOpen = !changePwdOpen;
+  document.getElementById('change-pwd-wrap').style.display = changePwdOpen ? '' : 'none';
+  document.querySelector('.change-pwd-toggle').textContent =
+    changePwdOpen ? '✕ 收起' : '🔑 修改密码';
+}
+
+async function doChangePwd() {
+  const cur     = document.getElementById('cp-current').value;
+  const newPwd  = document.getElementById('cp-new').value;
+  const confirm = document.getElementById('cp-confirm').value;
+  const msgEl   = document.getElementById('cp-msg');
+
+  if (!cur || !newPwd) { showCpMsg('请填写完整', true); return; }
+  if (newPwd !== confirm) { showCpMsg('两次新密码不一致', true); return; }
+  if (newPwd.length < 6)  { showCpMsg('新密码至少 6 个字符', true); return; }
+
+  try {
+    const r = await fetch(API + '/auth/password', {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: cur, newPassword: newPwd }),
+    });
+    const d = await r.json();
+    if (!r.ok) { showCpMsg(d.error || '修改失败', true); return; }
+    showCpMsg('✅ 密码修改成功', false);
+    document.getElementById('cp-current').value = '';
+    document.getElementById('cp-new').value     = '';
+    document.getElementById('cp-confirm').value = '';
+  } catch(e) { showCpMsg('网络错误', true); }
+}
+
+function showCpMsg(text, isErr) {
+  const el = document.getElementById('cp-msg');
+  el.textContent = text;
+  el.className = 'msg ' + (isErr ? 'error' : 'ok');
+}
+
+// ── 切换标签 ─────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('form-login').style.display    = tab==='login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-reg').classList.toggle('active', tab==='register');
+  document.getElementById('msg').textContent = '';
+}
+
+// ── 眼睛 ────────────────────────────────────────────────────
+function toggleEye(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  const isText = inp.type === 'text';
+  inp.type = isText ? 'password' : 'text';
+  // 切换图标：显示时用划线眼睛，隐藏时用普通眼睛
+  btn.querySelector('svg').innerHTML = isText
+    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+      + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+      + '<line x1="1" y1="1" x2="23" y2="23"/>';
+}
+
+// ── 登录 / 注册 ──────────────────────────────────────────────
+function showMsg(text, isErr) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + (isErr ? 'error' : 'ok');
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!username || !password) { showMsg('请填写用户名和密码', true); return; }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = '登录中…';
+  try {
+    const r = await fetch(API + '/auth/login', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const d = await r.json();
+    if (!r.ok) { showMsg(d.error || '登录失败', true); return; }
+    showMsg('登录成功，跳转中…', false);
+    const params = new URLSearchParams(window.location.search);
+    setTimeout(() => window.location.href =
+      decodeURIComponent(params.get('next') || '/html/home.html'), 500);
+  } catch(e) { showMsg('无法连接后端', true); }
+  finally { btn.disabled=false; btn.textContent='登录'; }
+}
+
+async function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const confirm  = document.getElementById('reg-confirm').value;
+  if (!username||!password) { showMsg('请填写完整信息', true); return; }
+  if (password !== confirm)  { showMsg('两次密码不一致', true); return; }
+  if (password.length < 6)   { showMsg('密码至少 6 个字符', true); return; }
+
+  const btn = document.getElementById('btn-reg');
+  btn.disabled = true; btn.textContent = '注册中…';
+  try {
+    const r = await fetch(API + '/auth/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const d = await r.json();
+    if (!r.ok) { showMsg(d.error || '注册失败', true); return; }
+    // 注册成功自动登录
+    document.getElementById('login-username').value = username;
+    document.getElementById('login-password').value = password;
+    switchTab('login');
+    await doLogin();
+  } catch(e) { showMsg('无法连接后端', true); }
+  finally { btn.disabled=false; btn.textContent='注册并登录'; }
+}
+</script>
+</body>
+</html>

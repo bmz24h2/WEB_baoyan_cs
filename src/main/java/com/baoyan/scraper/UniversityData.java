@@ -1,4 +1,4 @@
-package com.baoyan;
+package com.baoyan.scraper;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

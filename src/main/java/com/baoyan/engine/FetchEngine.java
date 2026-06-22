@@ -1,5 +1,8 @@
-package com.baoyan;
+package com.baoyan.engine;
 
+import com.baoyan.model.Teacher;
+import com.baoyan.model.SchoolInfo;
+import com.baoyan.db.DatabaseService;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -59,7 +62,7 @@ public class FetchEngine {
 
     private static final Logger log = LoggerFactory.getLogger(FetchEngine.class);
 
-    @Autowired BaoyanApp.DatabaseService db;
+    @Autowired DatabaseService db;
 
     @Value("${scraper.request-delay-min:600}")  long delayMin;
     @Value("${scraper.request-delay-max:1500}") long delayMax;
@@ -147,13 +150,51 @@ public class FetchEngine {
     private static final Pattern LABEL_DEPT = Pattern.compile(
         "^(?:学院|部门|系所|院系|单位)$");
 
+    // ★ 师资列表页面识别（供 detectPageType 计分使用）
+    public static final Pattern FACULTY_KW = Pattern.compile(
+        "师资队伍|师资力量|师资简介|师资介绍|教师队伍|教职工|专任教师|全体教师" +
+        "|教师简介|教师列表|教师信息|导师简介|导师队伍|教师风采" +
+        "|(?i)faculty|teaching\\s+staff|academic\\s+staff" +
+        "|(?i)our\\s+(?:faculty|team|people|staff)|professors\\s+and\\s+staff");
+
+    // ★ NEW — 实验室/课题组识别
+    public static final Pattern LAB_KW = Pattern.compile(
+        "课题组|研究组|实验室|研究中心|联合实验室|Laboratory|Lab\\b|Research\\s+Group|Research\\s+Lab");
+    private static final Pattern LABEL_LAB = Pattern.compile(
+        "^(?:课题组|研究组|研究团队|所在团队|所属(?:实验室|课题组)|实验室|团队名称)$");
+    static final Pattern RECRUIT_KW = Pattern.compile(
+        "正在招收|本年度招[收生]|招收推免|接收保研|欢迎[联系报考优]|招募学生|诚招|" +
+        "招收硕[士博]|open\\s+position|looking\\s+for\\s+student|joining\\s+(?:our\\s+)?group|" +
+        "welcome.*student|欢迎.*联系", Pattern.CASE_INSENSITIVE);
+
+    // ★ NEW — 通知/公告检测
+    public static final Pattern NOTICE_KW = Pattern.compile(
+        "预推免|夏令营|推免通知|保研通知|招生通知|招生简章|接收推荐免试|研究生招生公告" +
+        "|学术夏令营|报名须知|招生公告|导师招生计划|接收调剂|拟接收|推免报名");
+    public static final Pattern PLAN_KW = Pattern.compile(
+        "导师招生计划|意向导师|招收名额|拟招收|开放课题|接受简历|招生计划(?:表|汇总)");
+
+    // ★ NEW — 截止日期提取（含全角月/日）
+    static final Pattern DEADLINE_PAT = Pattern.compile(
+        "(202[3-9]|20[3-4]\\d)[年/\\-](1[0-2]|0?[1-9])[月/\\-](3[01]|[12]\\d|0?[1-9])日?" +
+        "|(202[3-9]|20[3-4]\\d)\\.(1[0-2]|0?[1-9])\\.(3[01]|[12]\\d|0?[1-9])");
+
+    // ★ NEW — 招生名额 / GPA / 排名要求
+    static final Pattern QUOTA_PAT = Pattern.compile(
+        "(?:拟招收|计划招收|招收|接收|接受)[^，。\\n]{0,15}?([0-9０-９]+)[\\s]*[人名]" +
+        "|([0-9]+)[\\s]*(?:个)?(?:招生)?名额");
+    static final Pattern GPA_PAT  = Pattern.compile(
+        "(?i)GPA[\\s]*[≥>≧=]{1,2}[\\s]*([0-9]+\\.?[0-9]*)");
+    static final Pattern RANK_PAT = Pattern.compile(
+        "排名?前[\\s]*([0-9]+)[%％]|成绩[^，。\\n]{0,10}前([0-9]+)[%％]?");
+
     // 姓名清洗正则
     private static final Pattern NAME_STRIP = Pattern.compile(
         "(正教授|特聘教授|长聘教授|教授|副教授|讲师|研究员|副研究员|博导|硕导|Dr\\.|Prof\\.)" +
         "|[（(][^）)]{0,20}[）)]|[A-Za-z0-9\\s/｜|，,。、·]");
 
     // 纯中文姓名验证（2-5汉字）
-    static final Pattern CN_NAME_PAT = Pattern.compile("^[\\u4e00-\\u9fff]{2,5}$");
+    public static final Pattern CN_NAME_PAT = Pattern.compile("^[\\u4e00-\\u9fff]{2,5}$");
 
     // ★ 机构名称模式（排除学校/学院/研究所等被当成人名）
     static final Pattern INSTITUTION_NAME_PAT = Pattern.compile(
@@ -172,20 +213,45 @@ public class FetchEngine {
         + "|/jzg/\\d+");                 // ★ 教职工ID型
 
     // 导航词黑名单（防止把导航链接当教师姓名）
+    // ★ 同时覆盖机构词、活动词、复合词，防止"基金校友""校企合作"等被误识别为人名
     static final Set<String> NAME_BLACKLIST = new HashSet<>(Arrays.asList(
-        "教授","副教授","讲师","研究员","博士","硕士","学生","教工","助教",
+        // 职称/身份词（不应独立作为姓名）
+        "教授","副教授","讲师","研究员","博士","硕士","学生","教工","助教","导师","辅导员",
+        // 机构/组织词
+        "学院","中心","研究所","师资","副院长","院长","书记","党委","工会","委员","主任",
+        "校友","基金","校企","科技","联盟","协会","学会","社团","委员会","理事会",
+        "集团","公司","实验室","研究院","研究中心","工作室","教研室","研究部",
+        // 活动/事件词
+        "通知","公告","动态","活动","新闻","讲座","报告","会议","论坛","研讨","峰会",
+        "招生","就业","合作","项目","基地","实验","期刊","荣誉","奖项","颁奖",
+        // 导航/功能词
         "简介","介绍","联系","更多","查看","点击","详情","返回","课程","首页",
         "中文","版权","访问","下载","申请","报名","登录","注册","关于","搜索",
-        "新闻","公告","通知","动态","活动","科研","教学","招生","就业","合作",
-        "图书","资源","网站","工程","项目","基地","实验","期刊","会议","荣誉",
-        "学院","中心","研究所","师资","副院长","院长","书记","党委","工会",
+        "图书","资源","网站","工程","期刊","人才",
+        // 复合黑名单（整体匹配）
         "师资队伍","通知公告","人才培养","科学研究","党的建设","学生天地",
         "学院新闻","讲座报告","标志成果","平台基地","科研团队","社会服务",
         "基本概况","理论学习","工作动态","组织机构","新闻动态","网站首页",
         "院长信箱","内设机构","学院领导","学院简介","师资招聘","兼聘导师",
         "信息公开","规章制度","对外交流","学科建设","毕业就业","关工委员",
-        "本科生教育","研究生教育","研究生招生","本科招生","教师招聘"
+        "本科生教育","研究生教育","研究生招生","本科招生","教师招聘",
+        "优质资源","合作纽带","学科专项","校地合作","校企合作","产教融合"
     ));
+
+    // ★ 非人名词根：含以下任一词根的字符串直接排除（substr 匹配，覆盖更多变体）
+    static final Set<String> NAME_BADROOTS = new HashSet<>(Arrays.asList(
+        "校友","基金","协会","联盟","委员","学会","论坛","研讨","招聘",
+        "通知","公告","活动","合作","项目","奖励","颁奖","评优","表彰",
+        "招生","就业","党委","工会","纪委","学生会","学联","组委"
+    ));
+
+    /** 统一姓名合法性检查：黑名单 + 词根过滤 */
+    public static boolean isBadName(String n) {
+        if (n == null || n.isBlank()) return true;
+        if (NAME_BLACKLIST.contains(n)) return true;
+        for (String root : NAME_BADROOTS) { if (n.contains(root)) return true; }
+        return false;
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // HTTP 层：限速 + Cookie + 编码自适应 + 多级降级
@@ -195,7 +261,7 @@ public class FetchEngine {
     private final ConcurrentHashMap<String, Map<String,String>> cookieJar  = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ReentrantLock>     hostLocks   = new ConcurrentHashMap<>();
 
-    String ua() { return UAS.get(RNG.nextInt(UAS.size())); }
+    public String ua() { return UAS.get(RNG.nextInt(UAS.size())); }
 
     void rateLimit(String host) {
         ReentrantLock lock = hostLocks.computeIfAbsent(host, h -> new ReentrantLock(true));
@@ -348,7 +414,7 @@ public class FetchEngine {
     }
 
     /** HEAD 检测（子域名探测用） */
-    boolean headReachable(String url, HttpClient hc) {
+    public boolean headReachable(String url, HttpClient hc) {
         try {
             int code = hc.send(
                 HttpRequest.newBuilder().uri(URI.create(url))
@@ -361,7 +427,7 @@ public class FetchEngine {
     }
 
     /** GET并计中文链接数（师资页路径探测用） */
-    boolean getHasCnLinks(String url, HttpClient hc, int min) {
+    public boolean getHasCnLinks(String url, HttpClient hc, int min) {
         try {
             HttpResponse<String> r = hc.send(
                 HttpRequest.newBuilder().uri(URI.create(url))
@@ -373,17 +439,17 @@ public class FetchEngine {
         } catch (Exception e) { return false; }
     }
 
-    long countCnLinks(String html) {
+    public long countCnLinks(String html) {
         return Jsoup.parse(html).select("a[href]").stream()
             .mapToLong(a -> a.text().chars().filter(c -> c >= 0x4e00 && c <= 0x9fff).count())
             .filter(n -> n >= 2).count();
     }
 
-    String resolveUrl(String base, String href) {
+    public String resolveUrl(String base, String href) {
         try { return new URI(base).resolve(href).toASCIIString(); } catch (Exception e) { return href; }
     }
 
-    boolean skipHref(String href) {
+    public boolean skipHref(String href) {
         return href == null || href.isEmpty()
             || href.startsWith("#") || href.startsWith("javascript:")
             || href.startsWith("mailto:") || href.startsWith("tel:")
@@ -477,6 +543,31 @@ public class FetchEngine {
             }
         }
 
+        // ★ NEW: 课题组/实验室名称（applyLabelValue 未捕到时用文本正则兜底）
+        if (info.getOrDefault("labName","").isEmpty()) {
+            Matcher lm = Pattern.compile(
+                "(?:所在|所属|隶属)?(?:课题组|实验室|研究组|研究团队|team)[：:是为\\s]*([^\\n，,。；;（(]{4,60})")
+                .matcher(text);
+            if (lm.find()) {
+                String lab = lm.group(1).trim();
+                if (!INSTITUTION_NAME_PAT.matcher(lab).matches())
+                    info.put("labName", lab.length() > 100 ? lab.substring(0,100) : lab);
+            }
+        }
+
+        // ★ NEW: Google Scholar 链接（原 parseProfile 只捕了 scholar.google，这里补 SemanticScholar + DBLP）
+        if (info.getOrDefault("googleScholar","").isEmpty()) {
+            Element ss = doc.selectFirst("a[href*='semanticscholar.org']");
+            if (ss != null) info.put("semanticScholar", ss.absUrl("href"));
+            Element db2 = doc.selectFirst("a[href*='dblp.org']");
+            if (db2 != null) info.put("dblp", db2.absUrl("href"));
+        }
+        Element orc = doc.selectFirst("a[href*='orcid.org']");
+        if (orc != null) info.put("orcid", orc.absUrl("href"));
+
+        // ★ NEW: 招生意愿检测（全文扫描 RECRUIT_KW）
+        info.put("recruiting", RECRUIT_KW.matcher(text).find() ? "true" : "false");
+
         return info;
     }
 
@@ -552,6 +643,7 @@ public class FetchEngine {
     /** 将标签-值对填充到 info（已有字段不覆盖） */
     private void applyLabelValue(String label, String value, Map<String,String> info) {
         if (label.isEmpty() || value.isEmpty()) return;
+        label = label.replaceAll("[：:：\\s]+$", "");
         if (LABEL_RESEARCH.matcher(label).find() && info.getOrDefault("researchAreas","").isEmpty()) {
             info.put("researchAreas", value.length() > 400 ? value.substring(0,400) : value);
         } else if (LABEL_TITLE.matcher(label).find() && info.getOrDefault("title","").isEmpty()) {
@@ -560,6 +652,11 @@ public class FetchEngine {
         } else if (LABEL_EMAIL.matcher(label).find() && info.getOrDefault("email","").isEmpty()) {
             Matcher em = EMAIL_PAT.matcher(value);
             if (em.find()) info.put("email", em.group());
+        }
+        // ★ NEW: 课题组/实验室归属
+        else if (LABEL_LAB.matcher(label).find() && info.getOrDefault("labName","").isEmpty()) {
+            if (!INSTITUTION_NAME_PAT.matcher(value).matches()) // 排除学院级机构名
+                info.put("labName", value.length() > 100 ? value.substring(0,100) : value);
         }
     }
 
@@ -584,7 +681,7 @@ public class FetchEngine {
             Matcher nm = nameP.matcher(b);
             if (!nm.find()) continue;
             String name = nm.group(1);
-            if (NAME_BLACKLIST.contains(name)) continue;
+            if (isBadName(name)) continue;
             Map<String,String> e = new LinkedHashMap<>();
             e.put("name", name);
             Matcher um = urlP.matcher(b);
@@ -602,13 +699,13 @@ public class FetchEngine {
      * 支持"吴小俊-人工智能与计算机学院"格式（江南大学）
      */
     String resolveNameFromProfile(String hint, Document doc) {
-        if (hint != null && CN_NAME_PAT.matcher(hint).matches() && !NAME_BLACKLIST.contains(hint))
+        if (hint != null && CN_NAME_PAT.matcher(hint).matches() && !isBadName(hint))
             return hint;
 
         // title 中的"姓名-学院"格式
         for (String part : doc.title().trim().split("[-_|—/]")) {
             part = part.trim();
-            if (CN_NAME_PAT.matcher(part).matches() && !NAME_BLACKLIST.contains(part)) return part;
+            if (CN_NAME_PAT.matcher(part).matches() && !isBadName(part)) return part;
         }
 
         // h1/h2/特定 class
@@ -618,7 +715,7 @@ public class FetchEngine {
             Element el = doc.selectFirst(sel);
             if (el == null) continue;
             String t = el.text().trim().split("[\\s　—\\-–|／/,，。：:]")[0].trim();
-            if (CN_NAME_PAT.matcher(t).matches() && !NAME_BLACKLIST.contains(t)) return t;
+            if (CN_NAME_PAT.matcher(t).matches() && !isBadName(t)) return t;
         }
 
         // meta keywords（如"学院名,教授,吴小俊"）
@@ -626,14 +723,14 @@ public class FetchEngine {
         if (mkw != null) {
             for (String kw : mkw.attr("content").split("[,，]")) {
                 kw = kw.trim();
-                if (CN_NAME_PAT.matcher(kw).matches() && !NAME_BLACKLIST.contains(kw)) return kw;
+                if (CN_NAME_PAT.matcher(kw).matches() && !isBadName(kw)) return kw;
             }
         }
 
         // ★ NEW: 尝试首个 <img alt="姓名"> 或 <img title="姓名">（人物照片alt文字）
         for (Element img : doc.select("img[alt], img[title]")) {
             String alt = img.hasAttr("alt") ? img.attr("alt").trim() : img.attr("title").trim();
-            if (CN_NAME_PAT.matcher(alt).matches() && !NAME_BLACKLIST.contains(alt)) return alt;
+            if (CN_NAME_PAT.matcher(alt).matches() && !isBadName(alt)) return alt;
         }
 
         return hint != null ? hint : "";
@@ -643,7 +740,7 @@ public class FetchEngine {
     String cleanName(String raw) {
         if (raw == null) return "";
         String n = NAME_STRIP.matcher(raw).replaceAll("").trim();
-        return (n.length() >= 2 && CN_NAME_PAT.matcher(n).matches() && !NAME_BLACKLIST.contains(n)) ? n : "";
+        return (n.length() >= 2 && CN_NAME_PAT.matcher(n).matches() && !isBadName(n)) ? n : "";
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -730,7 +827,7 @@ public class FetchEngine {
                 String href = a.absUrl("href");
                 if (href.isEmpty()) href = resolveUrl(pageUrl, a.attr("href"));
                 if (skipHref(href)) continue;
-                if (!CN_NAME_PAT.matcher(text).matches() || NAME_BLACKLIST.contains(text)) continue;
+                if (!CN_NAME_PAT.matcher(text).matches() || isBadName(text)) continue;
 
                 boolean shortName  = text.length() <= 3;
                 boolean hasNumId   = href.matches(".*\\d{3,}.*");
@@ -847,10 +944,10 @@ public class FetchEngine {
             // 行内全信息条目（无URL）：直接保存，无需fetch profile
             if (url == null || url.isBlank() || url.startsWith("inline|") || url.startsWith("script|")) {
                 if (nameHint != null && CN_NAME_PAT.matcher(nameHint).matches()
-                        && !NAME_BLACKLIST.contains(nameHint)
+                        && !isBadName(nameHint)
                         && !INSTITUTION_NAME_PAT.matcher(nameHint).matches()
                         && !nameHint.equals(univName)) {
-                    BaoyanApp.Teacher t = new BaoyanApp.Teacher(nameHint, univName, deptName,
+                    Teacher t = new Teacher(nameHint, univName, deptName,
                         "nourl:" + univName + ":" + nameHint);
                     t.setTitle(inlineTit);
                     t.setResearchAreas(entry.getOrDefault("researchAreas",""));
@@ -875,14 +972,14 @@ public class FetchEngine {
                     // 只要姓名合法即保存；字段空只记警告，不丢弃。
                     // 原来的门控（title&&research&&email 全空就丢弃）会把江南大学等解析失败的老师全砍掉。
                     if (name.isEmpty() || name.length() < 2 || !CN_NAME_PAT.matcher(name).matches()
-                            || NAME_BLACKLIST.contains(name)
+                            || isBadName(name)
                             || INSTITUTION_NAME_PAT.matcher(name).matches()
                             || name.equals(univName)) {
                         log.debug("    ⚠️ 无效姓名跳过: hint={} url={}", nameHint, url);
                         return;
                     }
 
-                    BaoyanApp.Teacher t = new BaoyanApp.Teacher(name, univName, deptName, url);
+                    Teacher t = new Teacher(name, univName, deptName, url);
                     // 行内职称优先；profile解析次之
                     String titleVal = !inlineTit.isEmpty() ? inlineTit : info.getOrDefault("title","");
                     t.setTitle(titleVal);
@@ -959,7 +1056,7 @@ public class FetchEngine {
                 .filter(el -> el.select("a[href]").stream()
                     .anyMatch(a -> {
                         String t = a.text().trim();
-                        return CN_NAME_PAT.matcher(t).matches() && !NAME_BLACKLIST.contains(t);
+                        return CN_NAME_PAT.matcher(t).matches() && !isBadName(t);
                     }))
                 .count();
 
@@ -976,7 +1073,7 @@ public class FetchEngine {
                 // 找姓名链接
                 for (Element a : el.select("a[href]")) {
                     String t = a.text().trim();
-                    if (CN_NAME_PAT.matcher(t).matches() && !NAME_BLACKLIST.contains(t)) {
+                    if (CN_NAME_PAT.matcher(t).matches() && !isBadName(t)) {
                         name = t;
                         href = a.absUrl("href");
                         if (href.isEmpty()) href = resolveUrl(pageUrl, a.attr("href"));
@@ -1049,7 +1146,7 @@ public class FetchEngine {
                 Matcher nm = namePat.matcher(block);
                 if (!nm.find()) continue;
                 String name = nm.group(1);
-                if (NAME_BLACKLIST.contains(name)) continue;
+                if (isBadName(name)) continue;
 
                 Map<String,String> entry = new LinkedHashMap<>();
                 entry.put("name", name);
@@ -1128,7 +1225,7 @@ public class FetchEngine {
                 if (name.isEmpty() || url.isEmpty() || db.existsByUrl(url)) continue;
                 Document pd = fetchRobust(url);
                 Map<String,String> info = pd != null ? parseProfileAdvanced(pd) : new LinkedHashMap<>();
-                BaoyanApp.Teacher t = new BaoyanApp.Teacher(name, univName, deptName, url);
+                Teacher t = new Teacher(name, univName, deptName, url);
                 t.setTitle(e.getOrDefault("title", info.getOrDefault("title","")));
                 t.setResearchAreas(info.getOrDefault("researchAreas",""));
                 t.setEmail(info.getOrDefault("email",""));
@@ -1172,12 +1269,208 @@ public class FetchEngine {
     }
 
     /** 取 URL 的基础域名后3段（用于同域过滤） */
-    static String baseDomain3(String url) {
+    public static String baseDomain3(String url) {
         try {
             String[] parts = new URI(url).getHost().split("\\.");
             return parts.length >= 3
                 ? parts[parts.length-3]+"."+parts[parts.length-2]+"."+parts[parts.length-1]
                 : new URI(url).getHost();
         } catch (Exception e) { return ""; }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ NEW: 实验室/课题组页面解析
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 解析实验室/课题组主页，提取：名称、PI、研究方向、成员列表、是否在招。
+     *
+     * @return Map keys: name, pi, researchAreas, members(List), recruiting, url, snippet
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String,Object> parseLabPage(Document doc, String baseUrl) {
+        Map<String,Object> lab = new LinkedHashMap<>();
+        lab.put("url", baseUrl);
+        String text = doc.text();
+
+        // 实验室名称：title > h1/h2 > 特定class
+        String name = doc.title().replaceAll("[-_|—/].*","").trim();
+        for (String sel : new String[]{"h1","h2",".lab-name",".group-name",".lab-title",".group-title"}) {
+            Element el = doc.selectFirst(sel);
+            if (el != null && !el.text().isBlank() && el.text().length() < 60) {
+                name = el.text().trim(); break;
+            }
+        }
+        lab.put("name", name);
+
+        // PI / 负责人
+        Pattern piPat = Pattern.compile(
+            "(?:PI|负责人|组长|导师|Principal\\s+Investigator)[：:\\s]*([\\u4e00-\\u9fff]{2,5}|[A-Z][a-z]+ [A-Z][a-z]+)");
+        Matcher piM = piPat.matcher(text);
+        if (piM.find()) lab.put("pi", piM.group(1).trim());
+
+        // 研究方向（复用现有 RESEARCH_PATS）
+        for (Pattern p : RESEARCH_PATS) {
+            Matcher m = p.matcher(text);
+            if (m.find()) { lab.put("researchAreas", m.group(1).trim()); break; }
+        }
+
+        // 成员列表：收集页面中所有合法中文姓名链接
+        List<String> members = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Element a : doc.select("a[href]")) {
+            String mName = cleanName(a.text());
+            if (!mName.isEmpty() && seen.add(mName)) members.add(mName);
+        }
+        // 也从纯文本中捕获（"成员：张三、李四"格式）
+        Matcher memPat = Pattern.compile(
+            "(?:成员|团队成员|实验室成员|组员)[：:：]\\s*([\\u4e00-\\u9fff、，,\\s]{4,200})").matcher(text);
+        if (memPat.find()) {
+            for (String part : memPat.group(1).split("[、，,\\s]+")) {
+                part = part.trim();
+                if (CN_NAME_PAT.matcher(part).matches() && !isBadName(part)
+                        && seen.add(part)) members.add(part);
+            }
+        }
+        lab.put("members", members);
+
+        // 招生意愿
+        lab.put("recruiting", RECRUIT_KW.matcher(text).find());
+
+        // 摘要（前 200 字）
+        String snippet = text.replaceAll("\\s+"," ").trim();
+        lab.put("snippet", snippet.length() > 200 ? snippet.substring(0,200) + "…" : snippet);
+
+        return lab;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ NEW: 招生通知/预推免公告解析
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 解析预推免/夏令营/招生简章页面。
+     *
+     * @return Map keys: title, url, category(notice/plan/camp),
+     *                   deadline, quota, gpaReq, rankReq, snippet, publishedAt
+     */
+    public Map<String,Object> parseNoticePage(Document doc, String url) {
+        Map<String,Object> notice = new LinkedHashMap<>();
+        notice.put("url",   url);
+        notice.put("title", doc.title().trim());
+        String text = doc.text();
+
+        // 细分类型
+        String cat = "notice";
+        if (PLAN_KW.matcher(text.substring(0, Math.min(600, text.length()))).find()) cat = "plan";
+        else if (text.contains("夏令营") || text.contains("summer")) cat = "camp";
+        notice.put("category", cat);
+
+        // ── 截止日期（取文中最后出现的日期，通常最靠近截止）
+        List<String> dates = extractDeadlines(text);
+        if (!dates.isEmpty()) notice.put("deadline", dates.get(dates.size()-1));
+
+        // ── 招生名额
+        String quota = extractQuota(text);
+        if (!quota.isEmpty()) notice.put("quota", quota);
+
+        // ── GPA 要求
+        Matcher gm = GPA_PAT.matcher(text);
+        if (gm.find()) notice.put("gpaReq", gm.group(1));
+
+        // ── 排名要求
+        Matcher rm = RANK_PAT.matcher(text);
+        if (rm.find()) notice.put("rankReq", (rm.group(1) != null ? rm.group(1) : rm.group(2)) + "%");
+
+        // ── 联系邮箱
+        Matcher em = EMAIL_PAT.matcher(text);
+        if (em.find()) notice.put("contactEmail", em.group());
+
+        // ── 发布时间
+        Element dateEl = doc.selectFirst("time,[class*='date'],[class*='time'],[class*='pub']");
+        if (dateEl != null) notice.put("publishedAt", dateEl.text().trim());
+
+        // ── 摘要（前 300 字）
+        String s = text.replaceAll("\\s+"," ").trim();
+        notice.put("snippet", s.length() > 300 ? s.substring(0,300) + "…" : s);
+
+        return notice;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ NEW: 页面类型检测（Teacher-list / Lab / Notice / Plan / Unknown）
+    //        基于关键词TF-IDF打分，无需训练数据，纯规则
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 快速判断一个页面属于哪种类型。
+     *
+     * @return "teacher_list" | "lab" | "notice" | "plan" | "unknown"
+     */
+    public String detectPageType(Document doc, String url) {
+        if (doc == null) return "unknown";
+        String title   = doc.title().toLowerCase();
+        String excerpt = doc.text().substring(0, Math.min(800, doc.text().length())).toLowerCase();
+        String combined = title + " " + excerpt;
+
+        int teacherScore = 0, labScore = 0, noticeScore = 0, planScore = 0;
+
+        // Teacher signals
+        if (FACULTY_KW.matcher(combined).find()) teacherScore += 4;
+        long cnNameLinks = doc.select("a[href]").stream()
+            .filter(a -> CN_NAME_PAT.matcher(cleanName(a.text())).matches()).count();
+        teacherScore += (int) Math.min(cnNameLinks / 2, 6);
+        if (url.matches(".*(?:szdw|jsdw|faculty|teacher|staff|people|rencai).*")) teacherScore += 3;
+
+        // Lab signals
+        if (LAB_KW.matcher(title).find())   labScore += 5;
+        if (LAB_KW.matcher(excerpt).find()) labScore += 2;
+        if (combined.contains("课题组成员") || combined.contains("lab member"))  labScore += 3;
+        if (combined.contains("pi ") || combined.contains("负责人"))             labScore += 2;
+        if (url.matches(".*(?:lab|labs|yjjg|yjzx|research|group|centre).*"))     labScore += 2;
+
+        // Notice signals
+        if (NOTICE_KW.matcher(combined).find()) noticeScore += 5;
+        if (DEADLINE_PAT.matcher(combined).find())  noticeScore += 3;
+        if (QUOTA_PAT.matcher(combined).find())     noticeScore += 2;
+        if (combined.contains("报名") || combined.contains("申请截止")) noticeScore += 1;
+        if (url.matches(".*(?:notice|tzgg|bszn|zsxx|notify|announce).*")) noticeScore += 2;
+
+        // Plan signals
+        if (PLAN_KW.matcher(combined).find()) planScore += 5;
+        if (combined.contains("导师") && combined.contains("名额")) planScore += 3;
+        if (url.matches(".*(?:plan|dszs|dsmc|recruit|mentor).*")) planScore += 2;
+
+        int max = Math.max(teacherScore, Math.max(labScore, Math.max(noticeScore, planScore)));
+        if (max == 0)           return "unknown";
+        if (max == planScore)   return "plan";
+        if (max == noticeScore) return "notice";
+        if (max == labScore)    return "lab";
+        return "teacher_list";
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ★ NEW: 辅助提取方法
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** 从文本中提取所有日期字符串（截止日期用） */
+    public List<String> extractDeadlines(String text) {
+        List<String> dates = new ArrayList<>();
+        Matcher m = DEADLINE_PAT.matcher(text);
+        while (m.find()) dates.add(m.group().trim());
+        return dates;
+    }
+
+    /** 从文本中提取招生名额数字 */
+    public String extractQuota(String text) {
+        Matcher m = QUOTA_PAT.matcher(text);
+        if (!m.find()) return "";
+        return (m.group(1) != null ? m.group(1) : m.group(2)).trim();
+    }
+
+    /** 统计页面中 Chinese name 链接数量（页面评分用） */
+    public long countCnNameLinks(Document doc) {
+        return doc.select("a[href]").stream()
+            .filter(a -> CN_NAME_PAT.matcher(cleanName(a.text())).matches()).count();
     }
 }
