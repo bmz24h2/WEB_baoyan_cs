@@ -78,7 +78,7 @@
 // 检测后端状态
 (async()=>{
   try{
-    const r=await fetch('/api/teachers/stats',{signal:AbortSignal.timeout(2000)});
+    const r=await fetch('http://localhost:8080/api/teachers/stats',{signal:AbortSignal.timeout(2000)});
     if(r.ok){document.getElementById('api-status').textContent='✅ 后端已连接';document.getElementById('api-status').classList.add('ok');}
     else throw new Error();
   }catch(_){

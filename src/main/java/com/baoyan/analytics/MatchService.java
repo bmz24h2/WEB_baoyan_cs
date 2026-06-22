@@ -41,18 +41,26 @@ static {
     DIR_EXPAND.put("机器学习",    Arrays.asList(
         // 同义/子方向
         "机器学习","深度学习","神经网络","迁移学习","联邦学习","表示学习","集成学习","半监督","自监督","对比学习",
+        // 英文 subfield/topic（OpenAlex）
+        "Artificial Intelligence","Machine Learning","Deep Learning",
         // 语义近邻
         "模式识别","统计学习","贝叶斯","优化","特征工程","数据驱动"));
     DIR_EXPAND.put("计算机视觉",  Arrays.asList(
         "计算机视觉","图像识别","目标检测","图像分割","图像处理","视觉感知","三维视觉","医学图像","SLAM","点云","视频理解","深度估计","光流","图像生成","视觉跟踪",
+        // 英文 subfield/topic（OpenAlex）
+        "Computer Vision and Pattern Recognition","Computer Vision","Pattern Recognition","Image Processing","Object Detection",
         // 近邻
         "模式识别","机器人感知","遥感","多媒体","图形学","增强现实"));
     DIR_EXPAND.put("自然语言处理",Arrays.asList(
         "自然语言处理","NLP","文本挖掘","语言模型","机器翻译","信息抽取","情感分析","知识图谱","问答系统","对话系统","文本生成","语义理解","文本分类","命名实体",
+        // 英文 subfield/topic（OpenAlex）
+        "Natural Language Processing","Information Retrieval","Knowledge Graph",
         // 近邻
         "语言学","信息检索","知识工程","文本数据库","语音识别","推荐系统"));
     DIR_EXPAND.put("大语言模型",  Arrays.asList(
         "大语言模型","LLM","GPT","预训练","Transformer","BERT","语言模型","指令微调","RLHF","RAG","Agent","大模型","基础模型","涌现能力","提示工程","思维链",
+        // 英文 subfield/topic（OpenAlex）
+        "Large Language Model","Generative AI","Foundation Model",
         // 近邻
         "自然语言处理","知识图谱","对话系统","文本生成","信息检索","推荐系统","多模态"));
     DIR_EXPAND.put("具身智能",    Arrays.asList(
@@ -81,18 +89,26 @@ static {
         "知识图谱","社交网络","分子图","图数据库","生物信息","药物发现","组合优化","图算法"));
     DIR_EXPAND.put("系统/体系结构",Arrays.asList(
         "体系结构","操作系统","计算机系统","编译","存储","分布式","并行计算","异构计算","处理器","FPGA","芯片","数据库系统","云计算",
+        // 英文 subfield/topic（OpenAlex）
+        "Hardware and Architecture","Computer Architecture","Distributed Systems","Cloud Computing",
         // 近邻
         "内存管理","调度","文件系统","虚拟化","容器","微架构","缓存","互联网络","硬件加速"));
     DIR_EXPAND.put("算法理论",    Arrays.asList(
         "算法","理论计算机","复杂度","组合优化","图论","近似算法","随机算法","博弈论","密码协议","形式化","在线算法",
+        // 英文 subfield/topic（OpenAlex）
+        "Computational Theory and Mathematics","Theoretical Computer Science",
         // 近邻
         "数学","运筹学","离散数学","计算几何","最优化","数论","代数","概率论","编码理论"));
     DIR_EXPAND.put("数据库/数据挖掘",Arrays.asList(
         "数据库","数据挖掘","数据管理","知识发现","推荐系统","图数据","时序数据","流数据","NoSQL","OLAP","大数据","数据仓库",
+        // 英文 subfield/topic（OpenAlex）
+        "Information Systems","Database Systems","Data Mining","Recommendation Systems",
         // 近邻
         "信息检索","商业智能","数据集成","异常检测","数据质量","知识图谱","数据湖","联邦学习"));
     DIR_EXPAND.put("软件工程",    Arrays.asList(
         "软件工程","软件测试","程序分析","形式化方法","软件安全","DevOps","需求工程","代码生成","智能软件","静态分析","模糊测试",
+        // 英文 subfield/topic（OpenAlex）
+        "Software","Software Engineering",
         // 近邻
         "软件架构","微服务","软件可靠性","程序验证","缺陷检测","软件维护","开源","开发工具"));
     DIR_EXPAND.put("高性能计算",  Arrays.asList(
@@ -101,12 +117,16 @@ static {
         "分布式计算","网格计算","数值计算","科学计算","模拟","有限元","大规模计算","性能优化"));
     DIR_EXPAND.put("嵌入式/物联网",Arrays.asList(
         "嵌入式","物联网","边缘计算","传感器","实时系统","CPS","无线传感","智能硬件","端侧AI","移动计算","TinyML",
+        // 英文 subfield/topic（OpenAlex）
+        "Internet of Things","Edge Computing","Embedded Systems",
         // 近邻
         "单片机","RTOS","低功耗","无线通信","工业控制","智能家居","可穿戴","MEMS","信号处理"));
     DIR_EXPAND.put("人机交互",    Arrays.asList(
-        "人机交互","HCI","用户界面","可视化","虚拟现实","增强现实","AR","VR","混合现实","智能交互","可访问性",
-        // 近邻
-        "认知科学","用户体验","眼动","手势","语音交互","触觉","游戏","教育技术"));
+        // 注意：AR/VR/UI/UX 等短英文缩写由 AnalyticsService.keywordMatches 做单词边界匹配，
+        // 避免 contains("ar") 误命中 research/software/hardware 等含"ar"的词
+        "人机交互","HCI","用户界面","用户体验","UX","UI","虚拟现实","增强现实","AR","VR","混合现实","智能交互","界面设计","交互设计",
+        // 近邻（去掉"可视化"——过宽，几乎所有方向都含此词，是误匹配源）
+        "认知科学","眼动","手势识别","语音交互","触觉反馈","可穿戴交互","社交计算"));
     DIR_EXPAND.put("量子计算",    Arrays.asList(
         // 核心量子词
         "量子计算","量子通信","量子算法","量子纠错","量子密钥","量子信息","量子机器学习","量子电路","量子优势","量子模拟",
@@ -115,6 +135,8 @@ static {
         "高性能计算","并行计算","数值计算","优化","线性代数","数学","物理","光子","低温"));
     DIR_EXPAND.put("网络与通信",  Arrays.asList(
         "网络","通信","无线网络","5G","6G","网络协议","SDN","P2P","CDN","流量","拥塞控制","网络测量",
+        // 英文 subfield/topic（OpenAlex）
+        "Computer Networks and Communications","Wireless Communications","Signal Processing",
         // 近邻
         "移动通信","卫星通信","信号处理","编码","调制","天线","频谱","物联网","网络安全","边缘计算"));
     // 兼容旧键名

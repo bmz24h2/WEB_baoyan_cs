@@ -645,7 +645,7 @@ async function clearAllPersonalData(){
 
   // 删除服务器端自定义模板
   try {
-    const r = await fetch('/api/profile/clear-personal-data', {
+    const r = await fetch('http://localhost:8080/api/profile/clear-personal-data', {
       method: 'DELETE'
     });
     const d = await r.json().catch(()=>({}));
@@ -707,7 +707,7 @@ function loadProfile(){
 }
 
 // ── 账号设置（头像 + 改密码）────────────────────────────────────
-const PAPI = '/api';
+const PAPI = 'http://localhost:8080/api';
 
 // 初始化：从服务端读取用户信息和头像
 (async function initAccount(){
@@ -868,7 +868,7 @@ async function doChangePwd(){
 </div>
 
 <script>
-const API = '/api';
+const API = 'http://localhost:8080/api';
 let extractedData = {};
 
 // ── 简历上传处理 ────────────────────────────────────────────────

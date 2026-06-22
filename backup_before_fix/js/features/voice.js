@@ -196,7 +196,7 @@ var VoiceSynth = (function () {
   var _audio       = null;    // HTMLAudioElement（阿里云 mp3）
   var _utterance   = null;    // SpeechSynthesisUtterance（浏览器 TTS）
 
-  var _API = '/api/speech/synthesize';
+  var _API = 'http://localhost:8080/api/speech/synthesize';
 
   /** 朗读文字（自动选择最佳引擎） */
   function speak(text, opts) {

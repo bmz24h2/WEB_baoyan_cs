@@ -96,16 +96,30 @@ public class DocumentController {
             new String[]{"尊敬的XXX老师：", "尊敬的{prof_name}老师："}
         ));
         PLACEHOLDER_RULES.put("statement", List.of(
-            new String[]{"我是XXX，来自拥有“xxx”、“xxx”、“双一流学科建设高校”等美誉的XXXXX，就读于计算机科学与技术专业，下面我将从学术背景、项目经历、组织经历、研究生阶段学习计划四个方面来介绍我自己。", "我是{name}，来自{school}，就读于{major}专业，下面我将从学术背景、项目经历、组织经历、研究生阶段学习计划四个方面来介绍我自己。"},
+            new String[]{"我是XXX，来自拥有“xxx”、“xxx“、“双一流学科建设高校”等美誉的XXXXX，就读于计算机科学与技术专业，下面我将从学术背景、项目经历、组织经历、研究生阶段学习计划四个方面来介绍我自己。", "我是{name}，来自{school}，就读于{major}专业，下面我将从学术背景、项目经历、组织经历、研究生阶段学习计划四个方面来介绍我自己。"},
             new String[]{"学分绩点为4.5/5.0，综合测评专业排名3/228", "学分绩点为{gpa}/5.0，综合测评专业排名前{rank_pct}%"},
             new String[]{"在校期间获得xxx奖学金", "在校期间获得{school}奖学金"},
-            new String[]{"研究生阶段，我将在XXX方向从以下三个方面做出努力：", "研究生阶段，我将在{target_dir}方向从以下三个方面做出努力："}
+            new String[]{"研究生阶段，我将在XXX方向从以下三个方面做出努力：", "研究生阶段，我将在{target_dir}方向从以下三个方面做出努力："},
+            // 项目标题占位符（AI填充后走 extraRules 整段替换，这里提供静态兜底）
+            new String[]{"XXXXXX ｜2020年5月 - 2020年6月 ", "{exp_title_1}"},
+            new String[]{"XXXX｜2019年04月 - 至今", "{exp_title_2}"},
+            new String[]{"XXXX｜2021年1月- 2021年2月", "{exp_title_3}"},
+            new String[]{"XXXX-副主席", "{org_role_1}"},
+            new String[]{"XXXX-主席", "{org_role_2}"}
         ));
         PLACEHOLDER_RULES.put("intro", List.of(
             new String[]{"尊敬的各位老师，上午好！我是XXX，就读于XXX大学软件工程专业，非常荣幸能够参加本次夏令营，下面我将从课程学习、科研竞赛、综合素质和未来规划四个方面介绍自己。", "尊敬的各位老师，上午好！我是{name}，就读于{school}{major}专业，非常荣幸能够参加本次夏令营，下面我将从课程学习、科研竞赛、综合素质和未来规划四个方面介绍自己。"},
             new String[]{"尊敬的各位老师，上午好！我是XXX，就读于XXX大学软件工程专业，下面我将从三个方面介绍自己：", "尊敬的各位老师，上午好！我是{name}，就读于{school}{major}专业，下面我将从三个方面介绍自己："},
-            new String[]{"绩点为3.8，排名于专业前百分之三，连续两年获得学业奖学金", "绩点为{gpa}，排名于专业前{rank_pct}%，连续两年获得学业奖学金"},
+            new String[]{"绩点为3.8，排名于专业前百分之三，连续两年获得学业奖学金", "绩点为{gpa}，排名于专业前{rank_pct}%，{awards}"},
             new String[]{"前五个学期绩点为3.8，绩点排名为专业前百分之三", "前五个学期绩点为{gpa}，绩点排名为专业前{rank_pct}%"},
+            // 科研竞赛段（1分钟版）
+            new String[]{"在科研竞赛方面，我积极参与多个科研项目，包括\"XXX\"微信小程序、\"XXX\"APP等，这些项目实践提升了我的计算机编程能力和应用能力。此外，我积极参加各类学科竞赛，曾获得\"计算机设计大赛\"省级二等奖等6个省级竞赛奖项。", "{exp_brief}"},
+            // 实践段（1分钟版）
+            new String[]{"在学习之余，我积极投身社会实践和志愿活动，不断提升自身团队协作能力以及综合素质。", "{practice_brief}"},
+            // 目标院校（1分钟版）
+            new String[]{"xxx大学是我一直向往的高校，非常希望并期待能够进入xx大学继续深造！谢谢各位老师！", "非常希望并期待能够进入{target_school}继续深造！谢谢各位老师！"},
+            // 目标院校（3分钟版）
+            new String[]{"xxx大学是我一直向往的高校，非常希望并期待能够进入xx大学继续深造！谢谢各位老师！", "非常希望并期待能够进入{target_school}继续深造！谢谢各位老师！"},
             new String[]{"非常希望并期待能够进入xx大学继续深造！谢谢各位老师！", "非常希望并期待能够进入{target_school}继续深造！谢谢各位老师！"},
             new String[]{"My name is XXX, and I am studying in Hebei Normal University, majoring in software engineering. Next, I will introduce myself from the following three aspects: my grades, academic prowess, and practical activities", "My name is {name}, and I am studying in {school_en}, majoring in {major}. Next, I will introduce myself from the following three aspects: my grades, academic prowess, and practical activities"},
             new String[]{"Good morning, professors! I am XXX, studying in Hebei Normal University, majoring in software engineering.", "Good morning, professors! I am {name}, studying in {school_en}, majoring in {major}."},
@@ -121,20 +135,26 @@ public class DocumentController {
             new String[]{"该同学在校成绩优异，学习态度端正，前五学期绩点一直保持专业前列", "{name}同学在校成绩优异，学习态度端正，绩点{gpa}，排名专业前{rank_pct}%"}
         ));
         PLACEHOLDER_RULES.put("resume-a", List.of(
-            new String[]{"2013.09—2017.06           河北财经大学                        市场营销（本科）", "{edu_start}—{edu_end}           {school}                        {major}（本科）"},
+            // 精确原文：—— 是全角破折号，空格数量以 docx 实际为准
+            new String[]{"2013.09—2017.06           河北财经大学                        市场营销（本科）",
+                         "{edu_start}—{edu_end}           {school}                        {major}（本科）"},
             new String[]{"应聘岗位：销售顾问        ", "应聘岗位：{target_position}        "},
             new String[]{"邮箱： XXXX@qq.com", "邮箱： {email}"}
         ));
         PLACEHOLDER_RULES.put("resume-b", List.of(
             new String[]{"求职意向：市场销售相关工作岗位", "保研意向：{target_school} · {target_dir}方向"},
-            new String[]{"2012.09—2016.6                  西南石油大学                  物流管理（本科） ", "{edu_start}—{edu_end}                  {school}                  {major}（本科） "},
+            // 精确原文：末尾有空格
+            new String[]{"2012.09—2016.6                  西南石油大学                  物流管理（本科） ",
+                         "{edu_start}—{edu_end}                  {school}                  {major}（本科） "},
             new String[]{"电话：88888888888          邮箱：888@qq.com", "电话：          邮箱：{email}"}
         ));
         PLACEHOLDER_RULES.put("resume-c", List.of(
             new String[]{"意向岗位：XXXXX", "申请方向：{target_position}"},
             new String[]{"XXXX@XXXX.com", "{email}"},
             new String[]{"北京 北京市", "{city} {city}市"},
-            new String[]{"2006.09-2010.07             文库科技大学                              软件工程/本科", "{edu_start}-{edu_end}             {school}                              {major}/本科"},
+            // 精确原文：文库科技大学后跟  （不间断空格）而非普通空格
+            new String[]{"2006.09-2010.07             文库科技大学                              软件工程/本科",
+                         "{edu_start}-{edu_end}             {school}                              {major}/本科"},
             new String[]{"工作经验", "科研经历"}
         ));
     }
@@ -201,8 +221,22 @@ public class DocumentController {
         v.putIfAbsent("recommender_title", "教授");
         v.putIfAbsent("recommender_school", v.getOrDefault("school","本科院校"));
         v.putIfAbsent("recommender_dept",   "计算机学院");
-        v.putIfAbsent("exp_brief",    v.getOrDefault("experience","参与相关科研项目"));
+        // exp_brief：从 experience 取前120字
+        String expFull = v.getOrDefault("experience","参与相关科研项目");
+        String expBriefDefault = expFull.length() > 120 ? expFull.substring(0,120)+"…" : expFull;
+        v.putIfAbsent("exp_brief",    expBriefDefault);
         v.putIfAbsent("exp_short",    "AI");
+        // statement 项目/组织占位符兜底（AI填充时会被 extraRules 整段覆盖）
+        v.putIfAbsent("exp_title_1",  "科研/项目经历一");
+        v.putIfAbsent("exp_title_2",  "科研/项目经历二");
+        v.putIfAbsent("exp_title_3",  "科研/项目经历三");
+        v.putIfAbsent("org_role_1",   "学生组织经历一");
+        v.putIfAbsent("org_role_2",   "学生组织经历二");
+        // practice_brief：从 practice 取，兜底为通用描述
+        String practiceFull = v.getOrDefault("practice","");
+        String practiceBriefDefault = practiceFull.isBlank() ? "积极投身社会实践和志愿活动，不断提升综合素质。"
+            : (practiceFull.length() > 80 ? practiceFull.substring(0,80)+"…" : practiceFull);
+        v.putIfAbsent("practice_brief", practiceBriefDefault);
         v.putIfAbsent("awards",       "相关竞赛奖项");
         v.putIfAbsent("target_school_en", "the target university");
         v.putIfAbsent("school_en",    v.getOrDefault("school","my university"));
@@ -448,14 +482,16 @@ public class DocumentController {
                 + "  \"skills_text\": \"编程技能：2-4条，每条约30字。Python/Java等语言+框架/工具+科研使用场景。\",\n"
                 + "  \"certs_text\": \"科研成果与证书：2-3条。发表/在投论文、英语等级（CET-6分数）、竞赛获奖等。\",\n"
                 + "  \"self_eval_text\": \"自我评价：120-160字。保研导向：科研热情、学术能力、团队协作、未来研究方向。\",\n"
-                + "  \"exp_text\": \"科研与项目经历，每条一行，格式：时间段 | 项目/论文名 | 角色 | 核心贡献。不加反斜杠，不加列表符号，不写实习工作。\",\n"
+                + "  \"exp_text\": \"科研与项目经历，每条占独立一行（用\\n换行符分隔，禁止用\\或其他符号分隔）。格式：时间段 | 项目/论文名 | 角色 | 核心贡献。不加列表符号，不写实习工作。\",\n"
                 + "  \"edu_text\": \"教育背景行，格式：起止时间 学校 专业/本科\"\n"
                 + "}";
         } else if (isIntro) {
             fieldSpec = "输出 JSON：\n"
                 + "{\n"
-                + "  \"intro_cn\": \"中文保研自我介绍：3-5分钟，约400-600字。结构：基本情况→科研经历（重点）→获奖→申请意向→结语。\",\n"
+                + "  \"intro_cn\": \"中文保研自我介绍：3-5分钟，约400-600字。结构：基本情况（姓名/院校/专业/GPA/排名）→科研经历（重点，逐项列出论文/项目/竞赛，必须用真实信息）→获奖荣誉→实践经历（如有）→申请意向→结语。禁止出现求职/应聘，保研视角。\",\n"
                 + "  \"intro_en\": \"英文保研自我介绍：约200词。Good morning/afternoon, professors...\",\n"
+                + "  \"exp_brief\": \"科研经历摘要：1-2句话，约80字，用于替换自我介绍中的科研段落占位符。必须基于真实科研信息，突出论文/项目/竞赛的具体成果。\",\n"
+                + "  \"practice_brief\": \"实践经历摘要：1句话，约40字，用于替换实践段落占位符。若无实践经历则填\\\"积极投身社会实践和志愿活动，不断提升综合素质。\\\"\",\n"
                 + "  \"self_eval_text\": \"书面自我评价：120-160字保研版\"\n"
                 + "}";
         } else if (isEmail) {
@@ -465,11 +501,34 @@ public class DocumentController {
                 + "  \"self_eval_text\": \"简短科研背景描述：3句话\"\n"
                 + "}";
         } else {
-            fieldSpec = "输出 JSON：\n"
-                + "{\n"
-                + "  \"self_eval_text\": \"保研个人陈述核心段落：300-500字。科研经历、学术成果、研究规划。\",\n"
-                + "  \"exp_text\": \"科研经历详述：完整描述所有科研/论文/竞赛经历\"\n"
-                + "}";
+            boolean isStmt = "statement".equals(key);
+            boolean isRec  = "recommendation".equals(key);
+            if (isStmt) {
+                fieldSpec = "输出 JSON（保研个人陈述用，面向研究生导师）：\n"
+                    + "{\n"
+                    + "  \"exp_text\": \"科研/项目经历详述，每条一行（\\n分隔）。格式：时间 | 项目名/论文名 | 角色 | 核心贡献+成果。必须完整，不得省略。\",\n"
+                    + "  \"exp_title_1\": \"第一条项目/论文的标题行，格式：项目名 ｜ 起止时间，如：MlyPredCSED研究 ｜ 2024年3月 - 2025年6月\",\n"
+                    + "  \"exp_title_2\": \"第二条项目/论文标题行，格式同上，无则填(无)\",\n"
+                    + "  \"exp_title_3\": \"第三条项目/论文标题行，格式同上，无则填(无)\",\n"
+                    + "  \"org_role_1\": \"学生组织/社会实践经历一，格式：组织名-职务，无则填(无)\",\n"
+                    + "  \"org_role_2\": \"学生组织/社会实践经历二，格式同上，无则填(无)\",\n"
+                    + "  \"self_eval_text\": \"研究生阶段规划：150-200字，结合意向研究方向\\n\\n说明：不要重复科研经历，聚焦未来规划。\"\n"
+                    + "}";
+            } else if (isRec) {
+                fieldSpec = "输出 JSON（专家推荐信用，以推荐导师第一人称写作）：\n"
+                    + "{\n"
+                    + "  \"rec_acquaintance\": \"认识经过段：约80字。说明推荐人与学生如何认识/合作，时间/场合/项目名称，基于学生真实科研经历。\",\n"
+                    + "  \"rec_research\": \"科研/工程能力段：约200字。具体科研成果、论文、大创项目、竞赛，必须用真实信息。\",\n"
+                    + "  \"rec_awards\": \"获奖与综合能力段：约100字。基于真实获奖信息。\",\n"
+                    + "  \"self_eval_text\": \"综合推荐语：约80字。总结推荐，保研视角。\"\n"
+                    + "}";
+            } else {
+                fieldSpec = "输出 JSON：\n"
+                    + "{\n"
+                    + "  \"self_eval_text\": \"保研个人陈述核心段落：300-500字。科研经历、学术成果、研究规划。\",\n"
+                    + "  \"exp_text\": \"科研经历详述：完整描述所有科研/论文/竞赛经历\"\n"
+                    + "}";
+            }
         }
 
         return "你是一名经验丰富的保研辅导老师。请根据以下学生的真实信息，生成【"
@@ -498,7 +557,7 @@ public class DocumentController {
             + "2. 所有内容严格基于上述真实信息，禁止编造\n"
             + "3. 保研视角，不得出现【求职】【应聘】【就业】等词\n"
             + "4. 科研经历要具体：论文写出题目方向、大创写省级等级和角色\n"
-            + "5. exp_text 每条单独一行，不加 \\、- 等符号，格式严格为：时间 | 项目名 | 角色 | 贡献\n";
+            + "5. exp_text 必须用 \\n 换行符分隔每条，禁止用 \\ 或其他符号，格式：时间 | 项目名 | 角色 | 贡献\n";
     }
 
     /** 调 AI 接口，返回原始响应文本（含 JSON） */
@@ -673,6 +732,20 @@ public class DocumentController {
         String certsTxt   = aiVars.getOrDefault("certs_text","");
         String evalTxt    = aiVars.getOrDefault("self_eval_text", aiVars.getOrDefault("self_eval",""));
         String expTxt     = aiVars.getOrDefault("exp_text","");
+        // 清理 expTxt：AI 有时用反斜杠 \ 作条目分隔符，统一转为换行；去掉空行
+        if (!expTxt.isBlank()) {
+            expTxt = expTxt.replace("\\", "\n")   // \ → 换行
+                           .replace("\r\n", "\n")
+                           .replace("\r", "\n");
+            // 去掉连续空行，trim 每行
+            String[] rawLines = expTxt.split("\n");
+            java.util.List<String> cleanLines = new java.util.ArrayList<>();
+            for (String l : rawLines) {
+                String t = l.trim();
+                if (!t.isEmpty()) cleanLines.add(t);
+            }
+            expTxt = String.join("\n", cleanLines);
+        }
 
         String[] skillLines = skillsTxt.isBlank() ? new String[0] : skillsTxt.split("[\r\n]+");
         String[] certLines  = certsTxt.isBlank()  ? new String[0] : certsTxt.split("[\r\n]+");
@@ -688,7 +761,7 @@ public class DocumentController {
             if (!evalTxt.isBlank()) rules.add(new String[]{"我热爱自己的专业，也希望找到和自己专业对口的工作，我会\u201c爱一行干一行\u201d，但我更相信\u201c干一行爱一行\u201d，阿基米德曾说\u201c给我一个支点，我能撬起地球\u201d，我想说\u201c给我一个机会，你将收获一个希望\u201d，相信您的选择和我的努力会为我们带来双赢，真诚地希望您能够为我提供一个施展才华的平台，更希望我的到来能带来您想到的价值！", evalTxt});
             rules.add(new String[]{"\u5de5\u4f5c\u7ecf\u9a8c", "\u79d1\u7814\u7ecf\u5386"});
             rules.add(new String[]{"\u53c2\u4e0ejava\u8f6f\u4ef6\u5f00\u53d1\u3001\u6d4b\u8bd5\u7b49\u8fc7\u7a0b\uff0c\u8d1f\u8d23\u5de5\u7a0b\u4e2d\u540e\u53f0\u63a5\u53e3\u7684\u5b9e\u73b0\uff1b", ""});
-            rules.add(new String[]{"\u89e3\u51b3\u5de5\u7a0b\u4e2d\u7684\u5173\u952e\u95ee\u9898\u548c\u6280\u672f\u96be\u9898\u4ee5\u53ca Code Review \u548c Code Scan.\u00a0", ""});
+            rules.add(new String[]{"解决工程中的关键问题和技术难题以及Code Review和Code Scan。\u00a0", ""});
             rules.add(new String[]{"2011.08-2013.02             \u4f18\u7c73\u4fe1\u606f\u79d1\u6280\uff08\u4e0a\u6d77\uff09\u6709\u9650\u516c\u53f8               java\u5f00\u53d1\u7a0b\u5e8f\u5458", ""});
             rules.add(new String[]{"\u8d1f\u8d23\u4fee\u6539\u540e\u53f0\u670d\u52a1\u4e2d\u4e00\u4e9b\u5c31\u653f\u7b56\u7684\u4e00\u4e9b\u8ddf\u5931\u4e1a\u76f8\u5173\u7684\u6807\u51c6\uff1b", ""});
             rules.add(new String[]{"\u8f6c\u79fb\u6a21\u5757\u4e2d\u6839\u636e\u516c\u79ef\u91d1\u4e2d\u5fc3\u4e1a\u52a1\u7684\u9700\u6c42\u5f00\u53d1\u3010\u56ed\u533a\u8f6c\u56ed\u533a\u3011\u3001\u3010\u5e73\u53f0\u8f6c\u79fb\u3011\u6a21\u5757\uff1b", ""});
@@ -697,6 +770,39 @@ public class DocumentController {
                 rules.add(new String[]{"2014.08-2015.07             \u4f18\u7c73\u4fe1\u606f\u79d1\u6280 \uff08\u5317\u4eac\uff09\u6709\u9650\u516c\u53f8              java\u5f00\u53d1\u7a0b\u5e8f\u5458",
                     expTxt.trim()});
             }
+            // 清空主修课程模板行（设计类模板与计算机专业无关）
+            rules.add(new String[]{"主修课程：C语言，操作系统，数据库原理，软件工程计算机网络，计算机体系结构，数据结构，操作系统。", ""});
+        } else if ("intro".equals(key)) {
+            // intro：exp_brief 和 practice_brief 通过 merged map 走占位符替换，无需 extraRules
+        } else if ("statement".equals(key)) {
+            // statement：AI 返回的 exp_title_1/2/3 和 org_role_1/2 已进入 merged，走占位符替换
+            // 同时用 exp_text 整段覆盖项目描述段（第一个项目描述段）
+            String expTxtStmt = aiVars.getOrDefault("exp_text", "");
+            if (!expTxtStmt.isBlank()) {
+                // 覆盖第一个项目描述段（该项目针对XXXX...）
+                rules.add(new String[]{"该项目针对XXXX的问题，提供XXXXX服务。我负责项目的组织策划及后端开发，采用基于Java的Spring Boot框架实现前后端互联，mysql及redis数据存储及智能云服务。针对高并发访问的问题，设计实现集群部署结合nginx实现负载均衡提高系统稳定性；针对数据安全问题，利用AOP面向切面编程方式实现系统防刷。", expTxtStmt.trim()});
+                // 清空其余项目描述段（用空字符串）
+                rules.add(new String[]{"项目获得XXXX一等奖（最高奖），与10余所高校进行合作，最高日活10万。相关成果转化为一项发明专利（一作，已受理）及一项软件著作权（一作，已授权）。", ""});
+                rules.add(new String[]{"该项目致力于研发一款涵盖各类校园服务的xxxx系统，提高学生信息查询及事务办理的效率。", ""});
+                rules.add(new String[]{"我负责后端版本研发、功能迭代工作，采用基于Java的SpringBoot框架及HttpClient进行系统间数据的交互并与前端互联，mysql及redis数据存储。针对周期性业务，设计实现多线程定时任务，完成数据定时爬取及分析、公众号提醒消息定时发送。", ""});
+                rules.add(new String[]{"该项目对XXX积累的用户数据进行整理分析，提供良好的可视化界面展示用户学期数据情况。", ""});
+                rules.add(new String[]{"我负责项目的组织策划及数据处理，采用基于Java语言的爬虫完成数据收集，mysql及文件完成数据存储。针对有效字段进行抽取，通过数据分析将各类数据结构化。针对用户及原始数据量大问题，采用多线程编程方式进行逻辑处理完成数据准备，并封装成API提供前端进行数据渲染完成可视化展示。", ""});
+                rules.add(new String[]{"项目于2021年2月6日通过学校官微推广至全校并稳定运行，DAU破万。", ""});
+            }
+            // self_eval_text 用于覆盖研究生阶段规划的某个段落（通过 merged map 处理）
+        } else if ("recommendation".equals(key)) {
+            String recAcq  = aiVars.getOrDefault("rec_acquaintance", "");
+            String recRes  = aiVars.getOrDefault("rec_research", "");
+            String recAwd  = aiVars.getOrDefault("rec_awards", "");
+            if (!recAcq.isBlank())
+                rules.add(new String[]{"XXX同学自大一起就在我所在单位xxxxxx的智慧校园研究中心参与学校智慧校园项目研发工作，并且指导其完成大学生创新训练计划项目，接触较多，了解基本情况。", recAcq});
+            if (!recRes.isBlank())
+                rules.add(new String[]{"该同学具有较高的工程能力。2020年5月，XXX同学参与了大学生创新训练计划项目——学生运动打卡多端服务高可用系统开发，并作为项目第一主持人。经过一年的系统训练，最终成功开发出了较为成熟、稳定的应用，该项目现已经结题，该同学学习掌握了服务器分布式部署，SpringBoot开发框架，Mysql数据库等技术，具备较强的工程研发能力。除此之外，该同学还参与了学校xxxx、xxxx等应用的开发与维护，总使用人数超3万，对学校信息化建设产生了良好的影响。", recRes});
+            if (!recAwd.isBlank())
+                rules.add(new String[]{"此外，该同学积极参加各类比赛，作为核心成员获得第十二届“挑战杯”中国大学生创业计划竞赛铜奖; 获得2020年中国高校计算机大赛一等奖；获得校第二十二届“创新杯”大学生课外学术科技作品竞赛特等奖等8个校级奖项；作为第一作者取得计算机软件著作权两项，受理发明专利一项。", recAwd});
+            // 清空英语/工作能力模板段
+            rules.add(new String[]{"该同学具有良好的英语水平。XXX同学大一即顺利通过英语四六级，英文阅读、写作能力较强，同时该同学在课余时间经常阅读一些英文文献，我认为这为以后研究生阶段阅读文献和撰写英文论文打下了较为良好的基础。", ""});
+            rules.add(new String[]{"该同学具有较强的工作能力。XXX同学担任第二十九届xxxxxxxx副主席兼青柚工作室主席，对待学生工作认真负责。XXX同学给我留下较深印象的是在项目开发和社团工作中，能够合理的分配任务，高效的完成工作。在校期间该同学获得2021年江苏省省级优秀学生干部、校优秀共青团干部等荣誉。", ""});
         } else if ("resume-a".equals(key)) {
             if (!skillsTxt.isBlank()) rules.add(new String[]{"熟练使用office办公软件", skillsTxt});
             if (!evalTxt.isBlank()) rules.add(new String[]{"具备销售、市场推广等相关实践经验，有较强的领导力、沟通能力、组织能力和团队精神", evalTxt});
@@ -814,16 +920,47 @@ public class DocumentController {
             }
 
             if (!replaced.equals(merged)) {
-                StringBuilder newPara = new StringBuilder();
-                int last = 0;
-                for (int i = 0; i < spans.size(); i++) {
-                    int[] sp = spans.get(i);
-                    newPara.append(para, last, sp[0]);
-                    if (i == 0) newPara.append(xmlEscape(replaced));
-                    last = sp[1];
+                if (replaced.contains("\n")) {
+                    // ── 多行文本：每行生成一个独立 <w:p>，复用原段落格式 ──
+                    String pPrXml = "";
+                    java.util.regex.Matcher pPrM = java.util.regex.Pattern
+                        .compile("<w:pPr>.*?</w:pPr>", java.util.regex.Pattern.DOTALL)
+                        .matcher(para);
+                    if (pPrM.find()) pPrXml = pPrM.group();
+                    // 提取第一个 <w:r> 的 <w:rPr>（用于保持字体格式）
+                    String rPrXml = "";
+                    java.util.regex.Matcher rPrM = java.util.regex.Pattern
+                        .compile("<w:rPr>.*?</w:rPr>", java.util.regex.Pattern.DOTALL)
+                        .matcher(para);
+                    if (rPrM.find()) rPrXml = rPrM.group();
+                    String[] lines = replaced.split("\n", -1);
+                    StringBuilder multiPara = new StringBuilder();
+                    for (String line : lines) {
+                        String lineText = line.trim();
+                        multiPara.append("<w:p>");
+                        if (!pPrXml.isEmpty()) multiPara.append(pPrXml);
+                        if (!lineText.isEmpty()) {
+                            multiPara.append("<w:r>");
+                            if (!rPrXml.isEmpty()) multiPara.append(rPrXml);
+                            multiPara.append("<w:t xml:space=\"preserve\">")
+                                     .append(xmlEscape(lineText))
+                                     .append("</w:t></w:r>");
+                        }
+                        multiPara.append("</w:p>");
+                    }
+                    para = multiPara.toString();
+                } else {
+                    StringBuilder newPara = new StringBuilder();
+                    int last = 0;
+                    for (int i = 0; i < spans.size(); i++) {
+                        int[] sp = spans.get(i);
+                        newPara.append(para, last, sp[0]);
+                        if (i == 0) newPara.append(xmlEscape(replaced));
+                        last = sp[1];
+                    }
+                    newPara.append(para.substring(last));
+                    para = newPara.toString();
                 }
-                newPara.append(para.substring(last));
-                para = newPara.toString();
             }
             pm.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(para));
         }

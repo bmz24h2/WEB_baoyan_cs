@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -89,20 +89,6 @@
       <div class="field-group">
         <label class="field-label">科研经历（简述，自动填入模板）</label>
         <textarea class="field-input" id="f-exp" rows="3" placeholder="参与XX方向课题，熟悉PyTorch，投稿CVPR…" style="resize:vertical;font-size:12px;line-height:1.5"></textarea>
-      </div>
-      <div class="field-group">
-        <label class="field-label">实践与志愿经历（自我介绍实践段）</label>
-        <textarea class="field-input" id="f-practice" rows="2" placeholder="担任XX志愿者；参加XX社会实践…" style="resize:vertical;font-size:12px;line-height:1.5"></textarea>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="field-group">
-          <label class="field-label">入学年月</label>
-          <input class="field-input" id="f-edu-start" placeholder="2021.09">
-        </div>
-        <div class="field-group">
-          <label class="field-label">毕业年月</label>
-          <input class="field-input" id="f-edu-end" placeholder="2025.06">
-        </div>
       </div>
     </div>
 
@@ -271,12 +257,6 @@ function loadProfile(){
     document.getElementById('f-rank').value   = profile.rankPct || '';
     document.getElementById('f-email').value  = profile.email   || '';
     document.getElementById('f-exp').value    = profile.experience || '';
-    const eduStart = document.getElementById('f-edu-start');
-    const eduEnd   = document.getElementById('f-edu-end');
-    if(eduStart && !eduStart.value.trim()) eduStart.value = profile.eduStart || '';
-    if(eduEnd   && !eduEnd.value.trim())   eduEnd.value   = profile.eduEnd   || '';
-    const practiceEl = document.getElementById('f-practice');
-    if(practiceEl && !practiceEl.value.trim()) practiceEl.value = profile.practice || '';
     if(profile.targetDirs?.length){
       document.getElementById('f-dir').value = profile.targetDirs.join('、');
       // 同步填入「意向岗位/保研方向」字段
@@ -511,16 +491,14 @@ function getVars(){
     recommender_dept: '计算机学院',
     experience:     expFull,
     exp_brief:      expBrief,
-    practice:       (document.getElementById('f-practice')?.value.trim()) || '',
-    practice_brief: (()=>{ const p=(document.getElementById('f-practice')?.value.trim())||''; return p.length>80?p.slice(0,80)+'…':p||'积极投身社会实践和志愿活动，不断提升综合素质。'; })(),
     exp_short:      'AI',
     awards:         '相关竞赛奖项',
     grade:          '2021',
     target_school_en: 'target university',
     school_en:      document.getElementById('f-school').value.trim() || 'my university',
     city:           '北京',
-    edu_start:      (document.getElementById('f-edu-start')?.value.trim()) || '2021.09',
-    edu_end:        (document.getElementById('f-edu-end')?.value.trim())   || '2025.06',
+    edu_start:      '2021.09',
+    edu_end:        '2025.06',
   };
 }
 
@@ -579,7 +557,7 @@ async function downloadAI(){
   btn.textContent = '⏳ 提交任务中…';
   strip.textContent = '正在提交 AI 生成任务…';
   try{
-    const resp = await fetch(`${API}/generate/ai/async`, {
+    const resp = await fetch(`${API}/generate/ai`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({templateKey: selectedKey, vars: getVars()})
@@ -611,11 +589,11 @@ function startAIPolling(){
       if(strip) strip.textContent = d.progress || '';
       if(d.status==='done'){
         clearInterval(_aiTimer);
+        localStorage.removeItem('baoyan_ai_task');
         if(strip) strip.textContent = '✅ AI 填充完成！正在下载…';
-        // 先读 key，再删 localStorage（顺序不能反）
+        // 自动下载
         const saved = JSON.parse(localStorage.getItem('baoyan_ai_task')||'{}');
         const tplKey = saved.key || selectedKey;
-        localStorage.removeItem('baoyan_ai_task');
         const tpl = templates.find(t=>t.key===tplKey);
         const a = document.createElement('a');
         a.href = `${API}/task/${_aiTaskId}/download`;

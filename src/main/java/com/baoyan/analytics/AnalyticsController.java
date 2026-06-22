@@ -228,14 +228,14 @@ public ResponseEntity<Map<String, Object>> areaTrend(
         @RequestParam(defaultValue = "2015") int minYear,
         @RequestParam(defaultValue = "2024") int maxYear) {
 
-    // 先尝试本地数据库（重爬后才有）
+    // 先用本地数据（含降级逻辑，无需重爬即可出图）
     Map<String, Object> local = analyticsService.getAreaTrend(minYear, maxYear);
     java.util.List<?> localSeries = (java.util.List<?>) local.get("series");
     if (localSeries != null && !localSeries.isEmpty()) {
         return ResponseEntity.ok(local);
     }
 
-    // 本地无数据 → 调 OpenAlex 聚合 API
+    // 本地完全无数据（数据库为空）→ 才调 OpenAlex
     return ResponseEntity.ok(fetchAreaTrendFromOpenAlex(minYear, maxYear));
 }
 
@@ -249,7 +249,7 @@ private static final java.util.List<String[]> OA_DIR_CONCEPTS = java.util.List.o
     new String[]{"分布式计算",        "C161191863"},   // Distributed Computing (level=2)
     new String[]{"数据挖掘",          "C97137631"},    // Data Mining (level=2)
     new String[]{"算法",              "C1033101"},     // Algorithm (level=2, not top-level CS)
-    new String[]{"人机交互",          "C138885662"},   // HCI (level=2)
+    new String[]{"人机交互",          "C2909091285"},  // User Interface (level=3, 比HCI更精确)
     new String[]{"强化学习",          "C50522688"}     // Reinforcement Learning (level=2)
 );
 

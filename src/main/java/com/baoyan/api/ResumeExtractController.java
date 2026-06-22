@@ -113,6 +113,32 @@ public class ResumeExtractController {
             }
         }
 
+        // ★ Step 5: 正则兜底修正 eduStart/eduEnd
+        // 从原文找第一个 YYYY.MM 格式（入学年月通常最早出现）
+        java.util.regex.Matcher eduM = java.util.regex.Pattern
+            .compile("(20\\d{2})[.年/](0?[1-9]|1[0-2])[月]?")
+            .matcher(text);
+        if (eduM.find()) {
+            String foundYear  = eduM.group(1);
+            String foundMonth = String.format("%02d", Integer.parseInt(eduM.group(2)));
+            String foundStart = foundYear + "." + foundMonth;
+            String aiStart = String.valueOf(extracted.getOrDefault("eduStart", ""));
+            if (aiStart.isBlank()) {
+                log.info("[简历解析] eduStart 正则兜底: {}", foundStart);
+                extracted.put("eduStart", foundStart);
+            }
+            // eduEnd 兜底：AI 未提取且原文含"至今"/"在读"时，入学年+4
+            String aiEnd = String.valueOf(extracted.getOrDefault("eduEnd", ""));
+            if (aiEnd.isBlank()) {
+                boolean onGoing = text.contains("至今") || text.contains("在读") || text.contains("present");
+                if (onGoing) {
+                    String inferredEnd = (Integer.parseInt(foundYear) + 4) + ".06";
+                    log.info("[简历解析] eduEnd 推算（至今+4年）: {}", inferredEnd);
+                    extracted.put("eduEnd", inferredEnd);
+                }
+            }
+        }
+
         log.info("[简历解析] 提取完成: name={}, school={}, email={}", extracted.get("name"), extracted.get("school"), extracted.get("email"));
         return ResponseEntity.ok(extracted);
     }
@@ -235,10 +261,12 @@ public class ResumeExtractController {
             "- practice: 【只填实践/志愿/学生工作的经历描述】，如：担任XX志愿者并获优秀称号、参加XX社会实践团、担任学生干部等。\n" +
             "  经历描述（时间+做了什么+结果）放这里；奖项名称本身（如「优秀志愿者称号」）放 awards。\n" +
             "  示例 practice：担任2025年无锡马拉松志愿者，获优秀志愿者称号；加入绿动联盟社会实践团，获院级优秀团队。若无则填\"\"\n" +
+            "- eduStart: 入学年月，格式 YYYY.MM（如\"2021.09\"）。从教育经历中提取，若写成\"2021年9月入学\"则转为\"2021.09\"。找不到则填\"\"\n" +
+            "- eduEnd: 毕业/预计毕业年月，格式 YYYY.MM（如\"2025.06\"）。若原文写\"至今\"、\"在读\"，则取 eduStart 的年份+4，月份固定06，如\"2021.09至今\"则填\"2025.06\"。找不到则填\"\"\n" +
             "- targetDirs: 数组，推断出的研究兴趣方向（从项目/论文/课程推断，如[\"机器学习\",\"计算机视觉\"]）\n\n" +
             "若某字段无法从简历中获取，该字段填 \"\" 或 []。\n\n" +
             "只返回 JSON，示例格式：\n" +
-            "{\"name\":\"张三\",\"school\":\"华中科技大学\",\"major\":\"计算机科学与技术\",\"grade\":\"大三\",\"gpa\":\"3.8\",\"rankPct\":\"5\",\"email\":\"zs@hust.edu.cn\",\"experience\":\"参与图像识别项目，复现ResNet，投稿CVPR workshop\",\"awards\":\"国家奖学金、计算机设计大赛省级一等奖\",\"targetDirs\":[\"计算机视觉\",\"机器学习\"]}\n\n" +
+            "{\"name\":\"张三\",\"school\":\"华中科技大学\",\"major\":\"计算机科学与技术\",\"grade\":\"大三\",\"gpa\":\"3.8\",\"rankPct\":\"5\",\"email\":\"zs@hust.edu.cn\",\"eduStart\":\"2021.09\",\"eduEnd\":\"2025.06\",\"experience\":\"参与图像识别项目，复现ResNet，投稿CVPR workshop\",\"awards\":\"国家奖学金、计算机设计大赛省级一等奖\",\"targetDirs\":[\"计算机视觉\",\"机器学习\"]}\n\n" +
             "简历内容：\n";
         // 若简历较长，把「科研经历」部分提前，确保AI在token限制内优先看到
         String processedText = resumeText;
@@ -354,7 +382,7 @@ public class ResumeExtractController {
         // 末尾 } 可能因 max_tokens 截断而缺失，end<0 时退而用整段
         json = (end > start) ? json.substring(start, end + 1) : json.substring(start);
 
-        String[] keys = {"name","school","major","grade","gpa","rankPct","email","experience","awards","practice"};
+        String[] keys = {"name","school","major","grade","gpa","rankPct","email","eduStart","eduEnd","experience","awards","practice"};
 
         // ── 容错提取：按 "key": 的位置把每个字段的值切片出来 ──
         // 对 experience / awards 这类长文本字段尤其重要：小模型生成时

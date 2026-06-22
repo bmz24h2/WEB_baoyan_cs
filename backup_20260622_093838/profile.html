@@ -260,7 +260,7 @@
   <div class="profile-section">
     <div class="profile-section-header">
       <div class="profile-section-title">基本信息</div>
-      <button class="btn-save-section" onclick="saveSection('basic', ['p-name','p-email','p-school','p-major','p-grade','p-gpa','p-rank','p-link','p-edu-start','p-edu-end'], this)">仅保存此项</button>
+      <button class="btn-save-section" onclick="saveSection('basic', ['p-name','p-email','p-school','p-major','p-grade','p-gpa','p-rank','p-link'], this)">仅保存此项</button>
     </div>
     <div class="field-row">
       <div class="field-group">
@@ -304,17 +304,6 @@
       <div class="field-group">
         <label class="field-label">成绩单/个人主页链接（可选）</label>
         <input class="field-input" id="p-link" placeholder="https://...">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field-group">
-        <label class="field-label">入学年月</label>
-        <input class="field-input" id="p-edu-start" placeholder="2021.09">
-        <span class="field-sub">用于简历模板「教育背景」行</span>
-      </div>
-      <div class="field-group">
-        <label class="field-label">毕业年月</label>
-        <input class="field-input" id="p-edu-end" placeholder="2025.06">
       </div>
     </div>
   </div>
@@ -499,8 +488,6 @@ function getProfileData(){
     targetDirs:    dirs,
     targetTiers:   tiers,
     targetSchools: document.getElementById('p-target-schools').value.trim(),
-    eduStart:     document.getElementById('p-edu-start')?.value.trim() || '',
-    eduEnd:       document.getElementById('p-edu-end')?.value.trim()   || '',
   };
 }
 
@@ -527,7 +514,6 @@ async function saveSection(sectionId, fieldIds, btn) {
         'p-grade':'grade','p-gpa':'gpa','p-rank':'rankPct','p-link':'link',
         'p-exp':'experience','p-awards':'awards','p-practice':'practice',
         'p-target-schools':'targetSchools',
-        'p-edu-start':'eduStart','p-edu-end':'eduEnd',
       };
       const key = keyMap[id] || id.replace('p-','');
       data[key] = el.value.trim();
@@ -689,8 +675,6 @@ function loadProfile(){
     set('p-awards', d.awards);
     set('p-practice', d.practice);
     set('p-target-schools', d.targetSchools);
-    set('p-edu-start', d.eduStart);
-    set('p-edu-end',   d.eduEnd);
     // 还原方向芯片
     (d.targetDirs||[]).forEach(v => {
       document.querySelector(`#p-dir-chips .chip[data-v="${v}"]`)?.classList.add('sel');
@@ -821,8 +805,6 @@ async function doChangePwd(){
       <div class="ex-field"><label>专业</label><input class="ex-input" id="ex-major"></div>
       <div class="ex-field"><label>GPA</label><input class="ex-input" id="ex-gpa"></div>
       <div class="ex-field"><label>排名前 X%</label><input class="ex-input" id="ex-rank"></div>
-      <div class="ex-field"><label>入学年月</label><input class="ex-input" id="ex-edu-start" placeholder="2021.09"></div>
-      <div class="ex-field"><label>毕业/预计毕业年月</label><input class="ex-input" id="ex-edu-end" placeholder="2025.06"></div>
       <div class="ex-field full"><label>科研经历</label>
         <textarea class="ex-input" id="ex-exp" rows="4" style="resize:vertical"></textarea>
       </div>
@@ -930,8 +912,6 @@ function showExtractModal(data) {
   document.getElementById('ex-major').value  = data.major  || '';
   document.getElementById('ex-gpa').value    = data.gpa    || '';
   document.getElementById('ex-rank').value   = data.rankPct|| '';
-  document.getElementById('ex-edu-start').value = data.eduStart || '';
-  document.getElementById('ex-edu-end').value   = data.eduEnd   || '';
   document.getElementById('ex-exp').value    = data.experience || '';
   document.getElementById('ex-awards').value = Array.isArray(data.awards) ? data.awards.join('\n') : (data.awards||'');
   const exPractice = document.getElementById('ex-practice');
@@ -974,8 +954,6 @@ function getModalValues() {
     experience: document.getElementById('ex-exp').value.trim(),
     awards:     document.getElementById('ex-awards')?.value.trim() || '',
     practice:   document.getElementById('ex-practice')?.value.trim() || '',
-    eduStart:   document.getElementById('ex-edu-start')?.value.trim() || '',
-    eduEnd:     document.getElementById('ex-edu-end')?.value.trim()   || '',
     targetDirs: extractedData.targetDirs || [],
   };
 }
@@ -992,9 +970,7 @@ function applyExtracted() {
   set('p-rank',   v.rankPct);
   set('p-exp',    v.experience);
   set('p-awards', v.awards);
-  set('p-practice',   v.practice);
-  set('p-edu-start',  v.eduStart);
-  set('p-edu-end',    v.eduEnd);
+  set('p-practice', v.practice);
 
   // 选中研究方向芯片
   document.querySelectorAll('#p-dir-chips .chip').forEach(c => c.classList.remove('sel'));

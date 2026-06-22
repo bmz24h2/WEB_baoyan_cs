@@ -15,7 +15,7 @@ var Auth = (function () {
   'use strict';
 
   var _user  = null;
-  var API    = '/api';
+  var API    = 'http://localhost:8080/api';
 
   /** 检查登录状态，未登录跳转到 login.html */
   async function check() {

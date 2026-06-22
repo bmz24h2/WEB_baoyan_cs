@@ -211,7 +211,7 @@
 </div>
 
 <script>
-const API = '/api/documents';
+const API = 'http://localhost:8080/api/documents';
 let profile = {};
 let templates = [];
 let selectedKey = null;
@@ -223,7 +223,7 @@ const ICONS = {
 };
 
 // ── 初始化 ─────────────────────────────────────────────────────────
-const PAPI = '/api';
+const PAPI = 'http://localhost:8080/api';
 
 async function loadProfileFromServer() {
   try {

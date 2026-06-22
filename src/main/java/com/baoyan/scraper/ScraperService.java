@@ -363,10 +363,22 @@ public class ScraperService {
     private int scrapePresetUniversity(UniversityData.UniversityConfig u) {
         int count=0;
         log.info("🎓 {}",u.name);
+        // ── edu.cn 直连（快速失败：连续 2 个院系列表页 null 即放弃直连，立即转间接搜索）──
+        int consecutiveFail = 0;
+        outer:
         for (UniversityData.DeptConfig dept : u.departments) {
             for (String listUrl : dept.getAllListUrls()) {
                 Document listDoc=engine.fetchRobust(listUrl);
-                if (listDoc==null) { log.error("  ❌ {}",listUrl); db.logScrape(listUrl,"FAILED","null"); continue; }
+                if (listDoc==null) {
+                    log.error("  ❌ {}",listUrl); db.logScrape(listUrl,"FAILED","null");
+                    // ★ 快速失败：连续 2 次 edu.cn 列表页失败就放弃直连，避免逐个超时耗光时间
+                    if (++consecutiveFail >= 2) {
+                        log.warn("  ⚡ 【{}】连续 {} 次 edu.cn 列表页失败，放弃直连，转间接搜索", u.name, consecutiveFail);
+                        break outer;
+                    }
+                    continue;
+                }
+                consecutiveFail = 0; // 成功一次就重置
                 if (core.isRedirectedToHomepage(listDoc, listUrl)) { log.warn("  ⚠️ 首页重定向跳过: {}",listUrl); continue; }
                 listDoc.setBaseUri(listUrl);
                 List<Map<String,String>> entries=engine.parseTeacherLinksCompat(
@@ -394,6 +406,23 @@ public class ScraperService {
                 }
             }
         }
+
+        // ── ★ 直连无结果时降级间接搜索（OpenAlex/AMiner/DBLP/知乎等，不碰 edu.cn）──
+        //   这正是清华/北大等"预设院校"之前爬不到的根因：批量入口只做 edu.cn 直连，
+        //   edu.cn 在境外/隧道环境普遍连不上，却从不降级到间接策略。
+        if (count == 0) {
+            log.warn("  🔄 【{}】edu.cn 直连 0 位，启动间接搜索（OpenAlex/AMiner/DBLP/知乎）…", u.name);
+            String univNote    = db.getUniversityNote(u.name);
+            List<String> cross = IndirectSearch.getCrossDomains(univNote);
+            if (!cross.isEmpty()) {
+                count = core.scrapeFromCrossDisciplinary(u.name, cross);
+                if (count == 0) count = core.scrapeFromIndirectSources(u.name, null);
+            } else {
+                count = core.scrapeFromIndirectSources(u.name, null);
+            }
+            log.info("  🌐 【{}】间接搜索结果: {} 位", u.name, count);
+        }
+
         log.info("🏁 {} 完成: {} 位",u.name,count);
         return count;
     }

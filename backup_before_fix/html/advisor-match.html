@@ -232,7 +232,7 @@
    绝不显示硬编码假数据
 ═══════════════════════════════════════════════════════ */
 
-const API = '/api';
+const API = 'http://localhost:8080/api';
 
 function toggleChip(el){ el.classList.toggle('sel'); }
 function getSelectedChips(id){ return [...document.querySelectorAll(`#${id} .chip.sel`)].map(c=>c.dataset.v); }

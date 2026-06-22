@@ -213,7 +213,7 @@ mark{background:var(--amber-bg,#fffbeb);border-radius:2px;padding:0 1px;color:in
 </div>
 
 <script>
-const API = '/api';
+const API = 'http://localhost:8080/api';
 const DONE_KEY = 'baoyan_interview_done';
 let profile = {}, currentQ = null, timerInterval = null, timerSec = 0;
 let doneSet = new Set(JSON.parse(localStorage.getItem(DONE_KEY)||'[]'));
@@ -850,7 +850,7 @@ function renderMarkdown(text) {
 
 // ── 题库管理 ──────────────────────────────────────────────────────
 let editingQId = null;
-const QAPI = '/api/interview';
+const QAPI = 'http://localhost:8080/api/interview';
 
 async function renderManage(){
   // 加载分类到 datalist

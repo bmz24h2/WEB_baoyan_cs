@@ -850,55 +850,94 @@ public class IndirectSearch extends ScraperCore {
      * 解析一页 OpenAlex authors 响应，过滤 CS 相关 concept 后写库。
      * 对没有任何 CS concept 标签的作者也保留（末流211 标签不全，宁可多收）。
      */
-    // OpenAlex 英文方向名 → 中文翻译（用于让中文检索词能匹配 OpenAlex 英文标签）
+    // OpenAlex subfield/field 规范英文名 → 中文翻译
+    // OpenAlex 的 topics 层级：topic → subfield → field → domain
+    // subfield 是全球固定的约250个规范方向名，CS field 下约20个，用它分类最准确
     private static final Map<String, String> OA_TOPIC_CN = new HashMap<>();
     static {
+        // ── CS field 下的核心 subfield（OpenAlex 规范名，精确匹配）──
+        OA_TOPIC_CN.put("Artificial Intelligence",                "人工智能 机器学习 深度学习");
+        OA_TOPIC_CN.put("Computer Vision and Pattern Recognition","计算机视觉 图像识别 模式识别 目标检测");
+        OA_TOPIC_CN.put("Computer Networks and Communications",   "网络与通信 计算机网络 无线通信");
+        OA_TOPIC_CN.put("Computer Science Applications",          "计算机应用");
+        OA_TOPIC_CN.put("Computational Theory and Mathematics",   "算法理论 计算理论 复杂度");
+        OA_TOPIC_CN.put("Computer Graphics and Computer-Aided Design", "计算机图形学 可视化");
+        OA_TOPIC_CN.put("Human-Computer Interaction",             "人机交互 HCI 用户界面 虚拟现实");
+        OA_TOPIC_CN.put("Information Systems",                     "信息系统 数据库 信息管理");
+        OA_TOPIC_CN.put("Information Systems and Management",      "信息系统 信息管理");
+        OA_TOPIC_CN.put("Hardware and Architecture",              "体系结构 处理器 硬件");
+        OA_TOPIC_CN.put("Software",                               "软件工程 程序分析");
+        OA_TOPIC_CN.put("Signal Processing",                      "信号处理 通信");
+        OA_TOPIC_CN.put("Control and Systems Engineering",        "控制 系统工程 自动化");
+        OA_TOPIC_CN.put("Computational Mechanics",                "计算力学 高性能计算");
+        OA_TOPIC_CN.put("Theoretical Computer Science",           "理论计算机 算法理论");
+
+        // ── CS field 本身及邻近 field ──
+        OA_TOPIC_CN.put("Computer Science",                       "计算机科学");
+        OA_TOPIC_CN.put("Artificial Intelligence and Machine Learning", "人工智能 机器学习");
+
+        // ── 常见细分 topic 名（OpenAlex topic 层，补充匹配近年新方向）──
         OA_TOPIC_CN.put("Machine Learning",                 "机器学习 深度学习");
-        OA_TOPIC_CN.put("Deep Learning",                    "深度学习 机器学习");
+        OA_TOPIC_CN.put("Deep Learning",                    "深度学习 机器学习 神经网络");
         OA_TOPIC_CN.put("Computer Vision",                  "计算机视觉 图像识别");
         OA_TOPIC_CN.put("Natural Language Processing",      "自然语言处理 NLP");
-        OA_TOPIC_CN.put("Human-Computer Interaction",       "人机交互 HCI");
-        OA_TOPIC_CN.put("Human–Computer Interaction",       "人机交互 HCI");
+        OA_TOPIC_CN.put("Large Language Models",            "大语言模型 LLM 大模型");
+        OA_TOPIC_CN.put("Large Language Model",             "大语言模型 LLM 大模型");
+        OA_TOPIC_CN.put("Generative AI",                    "生成式AI 大模型 大语言模型");
+        OA_TOPIC_CN.put("Foundation Models",                "基础模型 大模型 大语言模型");
+        OA_TOPIC_CN.put("Transformer",                      "大语言模型 Transformer");
         OA_TOPIC_CN.put("Reinforcement Learning",           "强化学习");
-        OA_TOPIC_CN.put("Graph Neural Network",             "图神经网络 GNN");
         OA_TOPIC_CN.put("Graph Neural Networks",            "图神经网络 GNN");
-        OA_TOPIC_CN.put("Large Language Model",             "大语言模型 LLM");
-        OA_TOPIC_CN.put("Large Language Models",            "大语言模型 LLM");
-        OA_TOPIC_CN.put("Multimodal Learning",              "多模态");
+        OA_TOPIC_CN.put("Graph Neural Network",             "图神经网络 GNN");
+        OA_TOPIC_CN.put("Multimodal Learning",              "多模态 多模态大模型");
+        OA_TOPIC_CN.put("Multimodal Large Language Models", "多模态 多模态大模型 大语言模型");
+        OA_TOPIC_CN.put("Human-Computer Interaction Design","人机交互 HCI 用户界面");
+        OA_TOPIC_CN.put("Virtual Reality",                  "虚拟现实 VR 人机交互");
+        OA_TOPIC_CN.put("Augmented Reality",                "增强现实 AR 人机交互");
         OA_TOPIC_CN.put("Computer Security",                "信息安全 网络安全");
         OA_TOPIC_CN.put("Cybersecurity",                    "网络安全 信息安全");
-        OA_TOPIC_CN.put("Cryptography",                     "密码学 信息安全");
+        OA_TOPIC_CN.put("Cryptography",                     "密码学 信息安全 网络安全");
         OA_TOPIC_CN.put("Network Security",                 "网络安全 密码学");
+        OA_TOPIC_CN.put("Blockchain",                       "区块链 网络安全");
         OA_TOPIC_CN.put("Software Engineering",             "软件工程 程序分析");
         OA_TOPIC_CN.put("Data Mining",                      "数据挖掘 数据库");
         OA_TOPIC_CN.put("Database Systems",                 "数据库 数据挖掘");
-        OA_TOPIC_CN.put("Distributed Systems",              "分布式 系统");
+        OA_TOPIC_CN.put("Advanced Database Systems and Queries", "数据库 数据挖掘");
+        OA_TOPIC_CN.put("Distributed Systems",              "分布式 系统 高性能计算");
+        OA_TOPIC_CN.put("Cloud Computing",                  "云计算 分布式 高性能计算");
+        OA_TOPIC_CN.put("Edge Computing",                   "边缘计算 嵌入式 物联网");
         OA_TOPIC_CN.put("Computer Architecture",            "体系结构 高性能计算");
         OA_TOPIC_CN.put("High Performance Computing",       "高性能计算 并行计算");
         OA_TOPIC_CN.put("Parallel Computing",               "并行计算 高性能计算");
         OA_TOPIC_CN.put("Algorithms",                       "算法理论 算法");
-        OA_TOPIC_CN.put("Algorithm Design",                 "算法理论 算法");
         OA_TOPIC_CN.put("Quantum Computing",                "量子计算 量子算法");
         OA_TOPIC_CN.put("Quantum Information",              "量子信息 量子计算");
         OA_TOPIC_CN.put("Embedded Systems",                 "嵌入式 物联网");
         OA_TOPIC_CN.put("Internet of Things",               "物联网 嵌入式");
-        OA_TOPIC_CN.put("Robotics",                         "机器人 强化学习");
+        OA_TOPIC_CN.put("IoT and Edge/Fog Computing",       "物联网 边缘计算 嵌入式");
+        OA_TOPIC_CN.put("Robotics",                         "机器人 具身智能 强化学习");
+        OA_TOPIC_CN.put("Embodied AI",                      "具身智能 机器人");
         OA_TOPIC_CN.put("Autonomous Driving",               "自动驾驶 计算机视觉");
+        OA_TOPIC_CN.put("Autonomous Vehicles",              "自动驾驶 计算机视觉");
         OA_TOPIC_CN.put("Image Processing",                 "图像处理 计算机视觉");
         OA_TOPIC_CN.put("Object Detection",                 "目标检测 计算机视觉");
         OA_TOPIC_CN.put("Signal Processing",                "信号处理 通信");
-        OA_TOPIC_CN.put("Wireless Communications",          "无线通信 通信");
+        OA_TOPIC_CN.put("Wireless Communications",          "无线通信 网络与通信");
+        OA_TOPIC_CN.put("Advanced MIMO Systems Optimization","无线通信 网络与通信");
         OA_TOPIC_CN.put("Federated Learning",               "联邦学习 机器学习");
         OA_TOPIC_CN.put("Transfer Learning",                "迁移学习 机器学习");
+        OA_TOPIC_CN.put("Domain Adaptation and Few-Shot Learning", "迁移学习 机器学习");
         OA_TOPIC_CN.put("Knowledge Graph",                  "知识图谱 自然语言处理");
         OA_TOPIC_CN.put("Recommendation Systems",           "推荐系统 数据挖掘");
         OA_TOPIC_CN.put("Bioinformatics",                   "生物信息 算法");
+        OA_TOPIC_CN.put("Computational Drug Discovery Methods", "生物信息 算法");
         OA_TOPIC_CN.put("Medical Image Analysis",           "医学图像 计算机视觉");
         OA_TOPIC_CN.put("Computational Intelligence",       "计算智能 机器学习");
         OA_TOPIC_CN.put("Pattern Recognition",              "模式识别 计算机视觉");
         OA_TOPIC_CN.put("Information Retrieval",            "信息检索 自然语言处理");
+        OA_TOPIC_CN.put("Advanced Bandit Algorithms Research", "强化学习 机器学习");
+        OA_TOPIC_CN.put("Advanced Data Compression Techniques", "数据压缩 算法理论");
     }
-
     /** 把 OpenAlex 英文 topic 名转为「英文 中文」混合描述，便于中英双语检索 */
     private static String translateOATopic(String en) {
         String cn = OA_TOPIC_CN.get(en);
@@ -913,17 +952,15 @@ public class IndirectSearch extends ScraperCore {
         Pattern citedPat   = Pattern.compile("\"cited_by_count\"\\s*:\\s*([0-9]+)");
         Pattern worksPat   = Pattern.compile("\"works_count\"\\s*:\\s*([0-9]+)");
         Pattern orcidPat   = Pattern.compile("\"orcid\"\\s*:\\s*\"(https://orcid\\.org/[^\"]+)\"");
-        Pattern conceptPat = Pattern.compile("\"id\"\\s*:\\s*\"https://openalex\\.org/(C[0-9]+)\"");
-        Pattern interestPat= Pattern.compile("\"display_name\"\\s*:\\s*\"([^\"]{2,40})\"");
 
-        // ★ 新增：解析 counts_by_year 用的正则
+        // ★ counts_by_year 解析
         Pattern cbyPat  = Pattern.compile("\"counts_by_year\"\\s*:\\s*\\[([^\\]]*)]");
         Pattern yearPat = Pattern.compile("\"year\"\\s*:\\s*([0-9]{4})");
         Pattern wkYPat  = Pattern.compile("\"works_count\"\\s*:\\s*([0-9]+)");
         Pattern ctYPat  = Pattern.compile("\"cited_by_count\"\\s*:\\s*([0-9]+)");
-        // ★ 新增：解析 topics（比旧 x_concepts 更准确，OpenAlex 2024+）
-        Pattern topicPat = Pattern.compile("\"topics\"\\s*:\\s*\\[([^\\]]{0,2000})]");
-        Pattern topicNamePat = Pattern.compile("\"display_name\"\\s*:\\s*\"([^\"]{2,50})\"");
+
+        // ★ topics 整块（含 field/subfield/domain 嵌套结构）
+        Pattern topicsBlockPat = Pattern.compile("\"topics\"\\s*:\\s*\\[(.*?)]\\s*,\\s*\"(?:affiliations|counts_by_year|x_concepts|summary_stats|works_api_url)", Pattern.DOTALL);
 
         for (int i = 1; i < segments.length; i++) {
             String seg = segments[i];
@@ -938,48 +975,65 @@ public class IndirectSearch extends ScraperCore {
             Matcher wm = worksPat.matcher(seg); if (wm.find()) works = Integer.parseInt(wm.group(1));
             if (works < 2) continue;
 
-            // 提取 concept IDs，判断是否 CS 相关（无标签也保留）
-            Set<String> authorConcepts = new HashSet<>();
-            Matcher cpat = conceptPat.matcher(seg);
-            while (cpat.find()) authorConcepts.add(cpat.group(1));
-            boolean isCs = authorConcepts.isEmpty()
-                || authorConcepts.stream().anyMatch(OA_CS_CONCEPTS::contains);
-            if (!isCs) continue;
+            // ★★ 核心改写：从 topics 提取结构化的 field + subfield ★★
+            // OpenAlex topic 结构: {display_name, subfield:{display_name}, field:{display_name}, domain:{display_name}}
+            // 用 field 判断是否 CS，用 subfield 作为研究方向（subfield 是规范名）
+            Set<String> fields    = new LinkedHashSet<>();
+            Set<String> subfields = new LinkedHashSet<>();
+            Set<String> topicNames= new LinkedHashSet<>();
 
-            // ★ 优先从 topics 提取研究方向（比 x_concepts 准确）
+            Matcher tbM = topicsBlockPat.matcher(seg);
+            String topicsBlock = tbM.find() ? tbM.group(1) : "";
+            if (topicsBlock.isEmpty()) {
+                // 兜底：取 topics 到下一个大字段之间
+                int ti = seg.indexOf("\"topics\"");
+                if (ti >= 0) topicsBlock = seg.substring(ti, Math.min(ti + 4000, seg.length()));
+            }
+
+            // 按每个 topic 对象切分（每个 topic 以 "id":"https://openalex.org/T 开头）
+            String[] topicObjs = topicsBlock.split("\"id\"\\s*:\\s*\"https://openalex\\.org/T");
+            Pattern fieldPat    = Pattern.compile("\"field\"\\s*:\\s*\\{[^}]*?\"display_name\"\\s*:\\s*\"([^\"]+)\"");
+            Pattern subfieldPat = Pattern.compile("\"subfield\"\\s*:\\s*\\{[^}]*?\"display_name\"\\s*:\\s*\"([^\"]+)\"");
+            Pattern topicNamePat= Pattern.compile("^[^{]*?\"display_name\"\\s*:\\s*\"([^\"]+)\"");
+
+            for (int j = 1; j < topicObjs.length; j++) {
+                String tObj = topicObjs[j];
+                Matcher fm = fieldPat.matcher(tObj);
+                if (fm.find()) fields.add(fm.group(1).trim());
+                Matcher sfm = subfieldPat.matcher(tObj);
+                if (sfm.find()) subfields.add(sfm.group(1).trim());
+                Matcher tnm = topicNamePat.matcher(tObj);
+                if (tnm.find()) topicNames.add(tnm.group(1).trim());
+            }
+
+            // ★ CS 过滤：field 必须含 "Computer Science"（金标准，OpenAlex 26个固定field之一）
+            //   放宽：也接受邻近 field（人机交互/控制可能归在别处）
+            boolean isCs = fields.stream().anyMatch(f ->
+                   f.equals("Computer Science")
+                || f.contains("Computer")
+                || f.equals("Artificial Intelligence"));
+            if (!isCs) continue;  // 非CS field 直接跳过（彻底解决医学/交通教授混入）
+
+            // ★ 研究方向 = subfield（规范名）优先，附加最相关的 topic 名
+            //   存储格式："中文翻译 英文subfield"，让中英文检索都能匹配
             List<String> interests = new ArrayList<>();
-            Matcher topicM = topicPat.matcher(seg);
-            if (topicM.find()) {
-                String topicsBlock = topicM.group(1);
-                Matcher tnM = topicNamePat.matcher(topicsBlock);
-                int skip = 0;
-                while (tnM.find() && interests.size() < 5) {
-                    if (skip++ == 0) continue; // 第一个 display_name 是 topic 本身
-                    String kw = tnM.group(1).trim();
-                    if (kw.length() > 2 && kw.length() < 40)
-                        interests.add(translateOATopic(kw));
-                }
+            for (String sf : subfields) {
+                if (interests.size() >= 4) break;
+                interests.add(translateOATopic(sf));
             }
-            // 降级：旧 x_concepts/display_name 方式
-            if (interests.isEmpty()) {
-                Matcher ipat = interestPat.matcher(seg);
-                int skip = 0;
-                while (ipat.find() && interests.size() < 5) {
-                    if (skip++ == 0) continue;
-                    String kw = ipat.group(1).trim();
-                    if (kw.length() > 2 && kw.length() < 40)
-                        interests.add(translateOATopic(kw));
-                }
+            // 补充1个最具体的 topic 名（近年新方向，如 Large Language Models）
+            for (String tn : topicNames) {
+                if (interests.size() >= 5) break;
+                String translated = translateOATopic(tn);
+                if (!interests.contains(translated)) interests.add(translated);
             }
 
-            // ★ 解析 counts_by_year → JSON 字符串 + 最近活跃年份
+            // ★ counts_by_year
             int activeYear = 0;
             StringBuilder cbyJson = new StringBuilder("[");
             Matcher cbyM = cbyPat.matcher(seg);
             if (cbyM.find()) {
-                String cbyBlock = cbyM.group(1);
-                // 按 { } 分割条目
-                String[] entries = cbyBlock.split("\\},?\\s*\\{");
+                String[] entries = cbyM.group(1).split("\\},?\\s*\\{");
                 for (String entry : entries) {
                     Matcher ym = yearPat.matcher(entry);
                     Matcher wym = wkYPat.matcher(entry);
@@ -988,12 +1042,12 @@ public class IndirectSearch extends ScraperCore {
                     int yr = Integer.parseInt(ym.group(1));
                     int wc = wym.find() ? Integer.parseInt(wym.group(1)) : 0;
                     int cc = cym.find() ? Integer.parseInt(cym.group(1)) : 0;
-                    if (yr < 2015 || yr > 2030) continue; // 只保留近10年
+                    if (yr < 2015 || yr > 2030) continue;
                     if (cbyJson.length() > 1) cbyJson.append(",");
                     cbyJson.append("{\"y\":").append(yr)
                            .append(",\"w\":").append(wc)
                            .append(",\"c\":").append(cc).append("}");
-                    if (wc > 0 && yr > activeYear) activeYear = yr; // 最近有发论文的年份
+                    if (wc > 0 && yr > activeYear) activeYear = yr;
                 }
             }
             cbyJson.append("]");
@@ -1009,7 +1063,6 @@ public class IndirectSearch extends ScraperCore {
 
             Teacher t = new Teacher(name, univName, "CS（OpenAlex）", profileUrl);
             t.setTitle(title);
-            // ★ research_areas 只存干净的研究方向，不再混入引用/论文数
             t.setResearchAreas(interests.isEmpty() ? null : String.join("；", interests));
             t.setCitedCount(cited);
             t.setWorksCount(works);
@@ -1069,49 +1122,8 @@ public class IndirectSearch extends ScraperCore {
             if (authResp.statusCode() != 200) return 0;
             String body = authResp.body();
 
-            // 解析 results 数组（按 /A 开头的 ID 分割）
-            Pattern oaIdPat   = Pattern.compile("\"id\"\\s*:\\s*\"(https://openalex\\.org/A[0-9]+)\"");
-            Pattern dispPat   = Pattern.compile("\"display_name\"\\s*:\\s*\"([^\"]{2,40})\"");
-            Pattern citedPat  = Pattern.compile("\"cited_by_count\"\\s*:\\s*([0-9]+)");
-            Pattern worksPat  = Pattern.compile("\"works_count\"\\s*:\\s*([0-9]+)");
-            Pattern orcidPat  = Pattern.compile("\"orcid\"\\s*:\\s*\"(https://orcid\\.org/[^\"]+)\"");
-
-            String[] results = body.split("\"display_name\"");
-            for (int i = 1; i < results.length && count < 50; i++) {
-                String seg = "\"display_name\"" + results[i];
-
-                Matcher dm = dispPat.matcher(seg);
-                if (!dm.find()) continue;
-                String name = dm.group(1).trim();
-                if (name.length() < 2) continue;
-
-                // 从整个 segment 前向找 ID
-                int segStart = body.indexOf(seg.substring(0, 30));
-                String ctxBefore = segStart > 0 ? body.substring(Math.max(0, segStart - 300), segStart) : "";
-                Matcher idm = oaIdPat.matcher(ctxBefore);
-                String oaId = "unknown";
-                while (idm.find()) oaId = idm.group(1);  // 取最后一个（最近的）
-
-                int cited = 0, works = 0;
-                Matcher cm = citedPat.matcher(seg);
-                if (cm.find()) cited = Integer.parseInt(cm.group(1));
-                Matcher wm = worksPat.matcher(seg);
-                if (wm.find()) works = Integer.parseInt(wm.group(1));
-                if (works < 3) continue;
-
-                // ORCID 优先作为 profile URL
-                String profileUrl = oaId;
-                Matcher om = orcidPat.matcher(seg);
-                if (om.find()) profileUrl = om.group(1);
-
-                String title = cited >= 5000 ? "\u6559\u6388"
-                    : cited >= 1000 ? "\u526f\u6559\u6388" : "\u8bb2\u5e08/\u7814\u7a76\u5458";
-
-                Teacher t = new Teacher(name, univName, "CS\uff08OpenAlex\uff09", profileUrl);
-                t.setTitle(title);
-                t.setResearchAreas("\u5f15\u7528\u6570:" + cited + ",\u8bba\u6587\u6570:" + works);
-                if (db.upsertTeacher(t)) count++;
-            }
+            // ★ 直接复用主力解析逻辑（field/subfield 结构化 + counts_by_year），保证数据一致干净
+            count += parseOpenAlexBatchPage(body, univName);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {

@@ -377,7 +377,7 @@
 
   // 后端检测
   try{
-    const r=await fetch('/api/teachers/stats',{signal:AbortSignal.timeout(2500)});
+    const r=await fetch('http://localhost:8080/api/teachers/stats',{signal:AbortSignal.timeout(2500)});
     if(!r.ok) throw new Error();
     const d=await r.json();
     const el=document.getElementById('api-status');

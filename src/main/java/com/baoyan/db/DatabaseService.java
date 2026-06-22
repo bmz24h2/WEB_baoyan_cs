@@ -239,7 +239,26 @@ public class DatabaseService {
                 """);
             if (cleaned > 0) log.info("🧹 自动清理垃圾教师记录 {} 条", cleaned);
         } catch (SQLException e) {
-            log.error("DB 初始化失败: {}", e.getMessage());
+            // ★ FTS5 虚拟表损坏（SQLITE_CORRUPT_VTAB）：删除损坏的 shadow 表后自愈
+            //   触发场景：上面的 DELETE FROM teachers 会触发 FTS5 同步触发器，
+            //   若 teachers_fts 的 shadow 表损坏（database disk image is malformed），
+            //   整个清理事务中断。删除 FTS5 后由 AnalyticsController 启动时重建。
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            if (msg.contains("CORRUPT") || msg.contains("malformed") || msg.contains("virtual table")) {
+                log.warn("⚠️ FTS5 全文索引损坏，正在删除损坏的 shadow 表以自愈…");
+                try (Connection c2 = getConnection(); Statement s2 = c2.createStatement()) {
+                    for (String tbl : new String[]{
+                            "teachers_fts", "teachers_fts_data", "teachers_fts_idx",
+                            "teachers_fts_docsize", "teachers_fts_config"}) {
+                        try { s2.execute("DROP TABLE IF EXISTS " + tbl); } catch (SQLException ignored) {}
+                    }
+                    log.info("✅ 损坏的 FTS5 表已删除，将由全文索引初始化重建");
+                } catch (SQLException ex2) {
+                    log.error("FTS5 自愈失败: {}", ex2.getMessage());
+                }
+            } else {
+                log.error("DB 初始化失败: {}", e.getMessage());
+            }
         }
     }
 

@@ -114,11 +114,10 @@ public Map<String, Object> getTiers() {
             while (rs.next()) {
                 String raw = rs.getString(1);
                 if (raw == null || raw.isBlank()) continue;
-                String lower = raw.toLowerCase();
                 for (int i = 0; i < dirNames.size(); i++) {
                     List<String> keywords = dirExpand.get(dirNames.get(i));
                     for (String kw : keywords) {
-                        if (lower.contains(kw.toLowerCase())) { counts[i]++; break; }
+                        if (keywordMatches(raw, kw)) { counts[i]++; break; }
                     }
                 }
             }
@@ -139,7 +138,7 @@ public Map<String, Object> getTiers() {
         return areas;
     }
 
-    // ── 各方向近10年活跃教师趋势（基于 counts_by_year 字段）────────────────
+    // ── 各方向近10年活跃教师趋势（基于 counts_by_year 字段，重爬后才有数据）──────
     // 返回格式：{years:[2015..2025], series:[{name:"机器学习", data:[1,2,3...]}, ...]}
     public Map<String, Object> getAreaTrend(int minYear, int maxYear) {
         Map<String, List<String>> dirExpand = matchService.getDirExpand();
@@ -173,12 +172,11 @@ public Map<String, Object> getTiers() {
                 }
                 if (activeYears.isEmpty()) continue;
 
-                // 对每个方向，如果该教师研究方向匹配，则在其活跃年份上 +1
                 for (int i = 0; i < dirNames.size(); i++) {
                     String dir = dirNames.get(i);
                     List<String> keywords = dirExpand.get(dir);
                     boolean matched = keywords.stream()
-                        .anyMatch(kw -> areasLower.contains(kw.toLowerCase()));
+                        .anyMatch(kw -> keywordMatches(areas, kw));
                     if (!matched) continue;
                     int[] arr = trendData.get(dir);
                     for (int yr : activeYears) arr[yr - minYear]++;
@@ -188,7 +186,6 @@ public Map<String, Object> getTiers() {
             log.error("[Analytics] getAreaTrend 失败", e);
         }
 
-        // 组装结果，只保留有数据的方向（最大值 >= 2）
         List<Integer> years = new ArrayList<>();
         for (int y = minYear; y <= maxYear; y++) years.add(y);
 
@@ -205,23 +202,51 @@ public Map<String, Object> getTiers() {
             series.add(s);
         }
         series.sort((a, b) -> {
-            List<Integer> da = (List<Integer>) a.get("data");
-            List<Integer> db2 = (List<Integer>) b.get("data");
-            int sa = da.stream().mapToInt(Integer::intValue).sum();
-            int sb = db2.stream().mapToInt(Integer::intValue).sum();
+            @SuppressWarnings("unchecked")
+            int sa = ((List<Integer>) a.get("data")).stream().mapToInt(Integer::intValue).sum();
+            @SuppressWarnings("unchecked")
+            int sb = ((List<Integer>) b.get("data")).stream().mapToInt(Integer::intValue).sum();
             return sb - sa;
         });
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("years",  years);
-        result.put("series", series.size() > 10 ? series.subList(0, 10) : series);
+        result.put("series", series.size() > 10 ? new ArrayList<>(series.subList(0, 10)) : series);
         result.put("note",   "基于 OpenAlex 论文年份统计，需重爬后数据才完整");
         return result;
     }
-
     @CacheEvict(value = {"analytics-overview", "analytics-distribution", "analytics-tiers", "analytics-areas"}, allEntries = true)
 public void evictAllCaches() {
     log.info("[Cache] 分析缓存已清除");
+}
+
+/**
+ * 安全的关键词匹配：避免短英文缩写的子串误匹配。
+ * 问题：旧逻辑 areas.contains("ar") 会把 research/software/hardware/learning
+ * 都误判为"人机交互"（都含 "ar"），导致人机交互虚高数千。
+ * 规则：纯ASCII短词(≤4字符,如AR/VR/UI/UX/GPT/LLM/NLP/GNN/HCI)用单词边界匹配；
+ *      中文或长英文词(≥5字符)用普通子串匹配。
+ */
+private static boolean keywordMatches(String areas, String keyword) {
+    if (areas == null || keyword == null || keyword.isBlank()) return false;
+    String kw = keyword.trim();
+    boolean isPureAsciiShort = kw.length() <= 4 && kw.chars().allMatch(c -> c < 128);
+    if (isPureAsciiShort) {
+        String lowerAreas = areas.toLowerCase();
+        String lowerKw = kw.toLowerCase();
+        int from = 0;
+        while (true) {
+            int idx = lowerAreas.indexOf(lowerKw, from);
+            if (idx < 0) return false;
+            char before = idx == 0 ? ' ' : lowerAreas.charAt(idx - 1);
+            int afterI = idx + lowerKw.length();
+            char after = afterI >= lowerAreas.length() ? ' ' : lowerAreas.charAt(afterI);
+            if (!Character.isLetterOrDigit(before) && !Character.isLetterOrDigit(after)) return true;
+            from = idx + 1;
+        }
+    } else {
+        return areas.toLowerCase().contains(kw.toLowerCase());
+    }
 }
 
 private long queryLong(Connection conn, String sql) throws SQLException {

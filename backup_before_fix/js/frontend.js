@@ -12,7 +12,7 @@ let UNIV_META = {};
 // 必须在任何【会被顶层 init() 触发的函数】之前声明，否则 const/let 处于
 // 暂时性死区(TDZ)，init() 在脚本顶层执行时(早于原 547 行)会抛
 // "Cannot access 'API_BASE' before initialization"。
-const API_BASE = "/api";
+const API_BASE = "http://localhost:8080/api";
 let apiAvailable = false;
 let teacherCache = {};
 let statsCache = null;
